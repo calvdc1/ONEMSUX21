@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo, FormEvent, useRef, forwardRef } from 'rea
 import type { HTMLProps } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { motion, AnimatePresence } from 'motion/react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { 
   MapPin, 
   ChevronRight, 
@@ -498,6 +499,42 @@ export default function App() {
     }
   };
 
+  const handleGoogleSignup = async (credentialResponse: any) => {
+    try {
+      const name = prompt('Please enter your full name:');
+      if (!name || name.trim().length === 0) {
+        alert('Full name is required');
+        return;
+      }
+
+      const campus = prompt('Select your campus (or press Enter for default):', 'MSU Main');
+
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+          name: name.trim(),
+          campus: campus || 'MSU Main'
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setUser(data.user);
+        setIsLoggedIn(true);
+        setIsSignupOpen(false);
+        localStorage.setItem('onemsu_auth', 'true');
+        localStorage.setItem('onemsu_user', JSON.stringify(data.user));
+      } else {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error('Google signup error:', error);
+      alert('Failed to sign up with Google');
+    }
+  };
+
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUser(null);
@@ -925,7 +962,26 @@ export default function App() {
                 <h3 className="text-2xl font-bold text-metallic-gold">Connect to ONEMSU</h3>
                 <button onClick={() => setIsLoginOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
-              
+
+              <div className="mb-6">
+                <GoogleLogin
+                  onSuccess={handleGoogleSignup}
+                  onError={() => alert('Login failed')}
+                  theme="dark"
+                  size="large"
+                  width="100%"
+                />
+              </div>
+
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-[#0b0c0f] text-gray-500">Or sign in with email</span>
+                </div>
+              </div>
+
               <form className="space-y-6" onSubmit={handleLogin}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email / ID</label>
@@ -987,12 +1043,31 @@ export default function App() {
                 <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
+              <div className="mb-6">
+                <GoogleLogin
+                  onSuccess={handleGoogleSignup}
+                  onError={() => alert('Login failed')}
+                  theme="dark"
+                  size="large"
+                  width="100%"
+                />
+              </div>
+
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-[#0b0c0f] text-gray-500">Or sign up with email</span>
+                </div>
+              </div>
+
               <form className="space-y-6" onSubmit={handleSignup}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <input 
+                  <input
                     name="name"
-                    type="text" 
+                    type="text"
                     placeholder="Juan Dela Cruz"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
@@ -2035,8 +2110,9 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen selection:bg-amber-500/30 selection:text-amber-200">
-      <AnimatePresence mode="wait">
+    <GoogleOAuthProvider clientId="1043819817786-2a7ruqvn7hfe6l4h2om7e2i5m5r83b1r.apps.googleusercontent.com">
+      <div className="min-h-screen selection:bg-amber-500/30 selection:text-amber-200">
+        <AnimatePresence mode="wait">
         {view === 'home' && (
           <motion.div
             key="home"
@@ -2170,6 +2246,7 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </GoogleOAuthProvider>
   );
 }

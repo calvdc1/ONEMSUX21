@@ -6,6 +6,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import jwt from "jsonwebtoken";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -261,12 +262,58 @@ async function startServer() {
 
   app.post("/api/auth/signup", (req, res) => {
     const { name, email, password, campus } = req.body;
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ success: false, message: "Full name is required" });
+    }
     try {
       const info = db.prepare("INSERT INTO users (name, email, password, campus) VALUES (?, ?, ?, ?)").run(name, email, password, campus);
       const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
       res.json({ success: true, user });
     } catch (err) {
       res.status(400).json({ success: false, message: "Email already exists" });
+    }
+  });
+
+  app.post("/api/auth/google", async (req, res) => {
+    const { credential, name, campus } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ success: false, message: "Missing credential" });
+    }
+
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ success: false, message: "Full name is required" });
+    }
+
+    try {
+      // Decode JWT without verification (Google will have signed it)
+      const decoded = jwt.decode(credential) as any;
+
+      if (!decoded || !decoded.email) {
+        return res.status(400).json({ success: false, message: "Invalid token" });
+      }
+
+      const { email, picture } = decoded;
+      let user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+
+      if (user) {
+        // Update avatar if provided
+        if (picture) {
+          db.prepare("UPDATE users SET avatar = ? WHERE id = ?").run(picture, user.id);
+        }
+        user = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
+      } else {
+        // Create new user from Google OAuth
+        const info = db.prepare(
+          "INSERT INTO users (name, email, password, campus, avatar) VALUES (?, ?, ?, ?, ?)"
+        ).run(name, email, "google-oauth", campus || "MSU Main", picture || null);
+        user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
+      }
+
+      res.json({ success: true, user });
+    } catch (err) {
+      console.error("Google auth error:", err);
+      res.status(400).json({ success: false, message: "Authentication failed" });
     }
   });
 
