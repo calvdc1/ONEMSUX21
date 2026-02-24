@@ -272,7 +272,19 @@ async function startServer() {
 
   app.get("/api/messages/:roomId", (req, res) => {
     const roomId = req.params.roomId;
+    const userId = Number(req.query.userId);
     const before = req.query.before as string | undefined;
+
+    // Privacy check for DMs
+    if (roomId.startsWith("dm-")) {
+      const parts = roomId.split("-");
+      const idA = Number(parts[1]);
+      const idB = Number(parts[2]);
+      if (userId !== idA && userId !== idB) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    }
+
     const pageSize = 50;
     let rows: any[] = [];
     if (before) {
@@ -319,8 +331,49 @@ async function startServer() {
 
   app.get("/api/users/search", (req, res) => {
     const query = req.query.q;
-    const users = db.prepare("SELECT id, name, email, campus FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10").all(`%${query}%`, `%${query}%`);
+    const users = db.prepare("SELECT id, name, email, campus, avatar FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10").all(`%${query}%`, `%${query}%`);
     res.json(users);
+  });
+
+  app.get("/api/conversations/:userId", (req, res) => {
+    const userId = Number(req.params.userId);
+    // Get all unique room_ids where this user is a sender or receiver (receiver check by roomId pattern for DMs)
+    // For DMs, room_id matches "dm-%-userId-%" or "dm-%-%-userId"
+    const rooms = db.prepare(`
+      SELECT DISTINCT room_id
+      FROM messages
+      WHERE sender_id = ?
+         OR room_id LIKE ?
+         OR room_id LIKE ?
+         OR room_id IN ('global', 'announcements', 'help-desk')
+    `).all(userId, `dm-${userId}-%`, `dm-%-${userId}`) as { room_id: string }[];
+
+    const conversations = rooms.map(r => {
+      const roomId = r.room_id;
+      const lastMsg = db.prepare("SELECT * FROM messages WHERE room_id = ? ORDER BY timestamp DESC LIMIT 1").get(roomId) as any;
+
+      let otherUser = null;
+      if (roomId.startsWith("dm-")) {
+        const parts = roomId.split("-");
+        const idA = Number(parts[1]);
+        const idB = Number(parts[2]);
+        const otherId = idA === userId ? idB : idA;
+        otherUser = db.prepare("SELECT id, name, avatar, campus FROM users WHERE id = ?").get(otherId);
+      }
+
+      return {
+        roomId,
+        lastMessage: lastMsg,
+        otherUser,
+        isGroup: !roomId.startsWith("dm-")
+      };
+    }).sort((a, b) => {
+      const timeA = a.lastMessage?.timestamp || "";
+      const timeB = b.lastMessage?.timestamp || "";
+      return timeB.localeCompare(timeA);
+    });
+
+    res.json(conversations);
   });
 
   // WebSocket Logic
@@ -331,7 +384,17 @@ async function startServer() {
       const message = JSON.parse(data.toString());
 
       if (message.type === "join") {
-        clients.set(ws, { userId: message.userId, roomId: message.roomId });
+        const { userId, roomId } = message;
+        // Basic privacy check for DMs
+        if (roomId.startsWith("dm-")) {
+          const parts = roomId.split("-");
+          const idA = Number(parts[1]);
+          const idB = Number(parts[2]);
+          if (userId !== idA && userId !== idB) {
+            return; // Ignore if user is not part of the DM
+          }
+        }
+        clients.set(ws, { userId, roomId });
       } else if (message.type === "chat") {
         const { senderId, senderName, content, roomId } = message;
         
