@@ -2110,7 +2110,7 @@ export default function App() {
   );
 
   return (
-    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
+    <GoogleOAuthProvider clientId="1043819817786-2a7ruqvn7hfe6l4h2om7e2i5m5r83b1r.apps.googleusercontent.com">
       <div className="min-h-screen selection:bg-amber-500/30 selection:text-amber-200">
         <AnimatePresence mode="wait">
         {view === 'home' && (
