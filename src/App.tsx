@@ -3,9 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, FormEvent, useRef, forwardRef } from 'react';
-import type { HTMLProps } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import { useState, useEffect, useMemo, FormEvent, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MapPin, 
@@ -394,7 +392,7 @@ export default function App() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-  // Virtuoso handles scroll anchoring and windowing; manual scroll handlers removed
+  // Keep the chat pinned to the latest message when the user is at the bottom.
   useEffect(() => {
     try { localStorage.setItem('onemsu_muted_rooms', JSON.stringify(mutedRooms)); } catch {}
   }, [mutedRooms]);
@@ -1912,29 +1910,11 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <Virtuoso
-                  style={{ height: '100%' }}
-                  data={messages}
-                  computeItemKey={(index, item) => String((item as any).id ?? `${(item as any).timestamp}-${index}`)}
-                  followOutput={(atBottom) => (atBottom ? 'smooth' : false)}
-                  components={{
-                    Scroller: forwardRef<HTMLDivElement, HTMLProps<HTMLDivElement>>((props, ref) => (
-                      <div
-                        {...props}
-                        ref={(node) => {
-                          if (typeof ref === 'function') ref(node as HTMLDivElement | null);
-                          else if (ref) (ref as any).current = node;
-                          scrollRef.current = node as HTMLDivElement | null;
-                        }}
-                        className={`${props.className ?? ''} scrollbar-hide`}
-                      />
-                    )),
-                    Header: () => isLoadingMore ? (
-                      <div className="py-3 text-center text-xs text-gray-500">Loading older messages…</div>
-                    ) : null
-                  }}
-                  startReached={async () => {
-                    if (isLoadingMore || !hasMore) return;
+                <div
+                  ref={scrollRef}
+                  className="h-full overflow-auto scrollbar-hide"
+                  onScroll={async (e) => {
+                    if (e.currentTarget.scrollTop > 0 || isLoadingMore || !hasMore) return;
                     const oldest = messages[0]?.timestamp;
                     if (!oldest) return;
                     setIsLoadingMore(true);
@@ -1950,7 +1930,11 @@ export default function App() {
                       setIsLoadingMore(false);
                     }
                   }}
-                  itemContent={(index, m) => {
+                >
+                  {isLoadingMore && (
+                    <div className="py-3 text-center text-xs text-gray-500">Loading older messages…</div>
+                  )}
+                  {messages.map((m, index) => {
                     const sid = (m as any).sender_id ?? (m as any).senderId;
                     const sname = (m as any).sender_name ?? (m as any).senderName;
                     const ts = (m as any).timestamp;
@@ -1981,12 +1965,8 @@ export default function App() {
                         </div>
                       </div>
                     );
-                  }}
-                  atBottomStateChange={(isAtBottom) => {
-                    stickToBottomRef.current = isAtBottom;
-                    if (isAtBottom) sendSeen();
-                  }}
-                />
+                  })}
+                </div>
               )}
             </div>
             <div className="p-6 bg-black/20">
