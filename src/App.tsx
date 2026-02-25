@@ -433,6 +433,32 @@ export default function App() {
     return [];
   });
 
+  // Notification state
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+
+  // Global search state
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setGlobalSearchOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setGlobalSearchOpen(false);
+        setGlobalSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       const nx = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -569,6 +595,19 @@ export default function App() {
               return { ...prev, [roomId]: current.filter(n => n !== senderName) };
             }
           });
+        } else if (data.type === 'notification') {
+          // Handle real-time notification
+          const notif = {
+            id: data.id,
+            type: data.notificationType,
+            actorName: data.actorName,
+            actionText: data.actionText,
+            roomId: data.roomId,
+            timestamp: new Date().toISOString(),
+            isRead: false
+          };
+          setNotifications(prev => [notif, ...prev]);
+          setUnreadNotificationsCount(prev => prev + 1);
         } else if (data.type === 'voice-existing-users') {
           // We just joined, initiate calls to existing users
           data.users.forEach(async (targetId: number) => {
@@ -611,12 +650,12 @@ export default function App() {
       setFirstItemIndex(START_INDEX);
       setIsLoadingMore(true);
 
-      const url = `/api/messages/${activeRoom}?userId=${user?.id || ''}&limit=6`;
+      const url = `/api/messages/${activeRoom}?userId=${user?.id || ''}`;
       fetch(url)
         .then(res => res.json())
         .then((data: Message[]) => {
           setMessages(data);
-          setHasMore(data.length >= 6);
+          setHasMore(data.length >= 50);
           // On room change, scroll to bottom
           requestAnimationFrame(() => {
             if (virtuosoRef.current) {
@@ -634,6 +673,26 @@ export default function App() {
         .finally(() => setIsLoadingMore(false));
     }
   }, [isLoggedIn, activeRoom]);
+
+  // Load notifications on user login
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`/api/notifications/${user.id}`)
+        .then(res => res.json())
+        .then((data: any[]) => {
+          setNotifications(data);
+          const unread = data.filter(n => !n.is_read).length;
+          setUnreadNotificationsCount(unread);
+        })
+        .catch(err => console.error("Failed to load notifications:", err));
+
+      // Load unread count
+      fetch(`/api/notifications/${user.id}/unread-count`)
+        .then(res => res.json())
+        .then(data => setUnreadNotificationsCount(data.unreadCount))
+        .catch(err => console.error("Failed to load unread count:", err));
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     try { localStorage.setItem('onemsu_muted_rooms', JSON.stringify(mutedRooms)); } catch {}
@@ -668,6 +727,49 @@ export default function App() {
       setStickyNotes([]);
     }
   }, [user]);
+
+  // Global search effect
+  useEffect(() => {
+    if (!globalSearchQuery.trim()) {
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    setGlobalSearchLoading(true);
+    const timer = setTimeout(() => {
+      // Simple local search across available data
+      const query = globalSearchQuery.toLowerCase();
+      const results: any[] = [];
+
+      // Search users
+      if (directMessageList) {
+        directMessageList.forEach(dm => {
+          if (dm.name.toLowerCase().includes(query)) {
+            results.push({ type: 'user', id: dm.id, name: dm.name, avatar: dm.avatar, roomId: dm.roomId });
+          }
+        });
+      }
+
+      // Search groups
+      groups.forEach(g => {
+        if (g.name?.toLowerCase().includes(query) || g.description?.toLowerCase().includes(query)) {
+          results.push({ type: 'group', id: g.id, name: g.name, description: g.description });
+        }
+      });
+
+      // Search confessions
+      freedomPosts.forEach(p => {
+        if (p.content.toLowerCase().includes(query)) {
+          results.push({ type: 'confession', id: p.id, content: p.content.substring(0, 50), alias: p.alias });
+        }
+      });
+
+      setGlobalSearchResults(results.slice(0, 10));
+      setGlobalSearchLoading(false);
+    }, 300); // Debounce
+
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery, directMessageList, groups, freedomPosts]);
 
   const joinGroup = async (group: any) => {
     if (!user) return;
@@ -1162,18 +1264,108 @@ export default function App() {
       .filter(([room]) => room.startsWith('newsfeed-') || room === 'announcements')
       .reduce((sum, [_, count]) => (sum as number) + (count as number), 0);
 
+    const markNotificationAsRead = async (notificationId: number) => {
+      try {
+        await fetch('/api/notifications/mark-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationId, userId: user?.id })
+        });
+        setNotifications(prev =>
+          prev.map(n => n.id === notificationId ? { ...n, is_read: 1 } : n)
+        );
+        setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+      } catch (err) {
+        console.error("Failed to mark notification as read:", err);
+      }
+    };
+
     return (
     <div className="h-full w-full bg-[#0a0502] p-4 md:p-8 lg:p-12 overflow-y-auto scrollbar-hide">
       <div className="max-w-7xl mx-auto pb-20">
         <header className="flex justify-between items-center mb-12">
           <div className="flex items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
-              <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
+              <h2 className="text-2xl font-bold text-white">
+                Welcome back, {user?.name || 'MSUan'}! 👋
+              </h2>
+              <div className="flex gap-4 mt-2 text-sm text-gray-400">
+                <span>{totalUnreadCount} unread messages</span>
+                <span>•</span>
+                <span>{freedomPosts.length} confessions</span>
+                <span>•</span>
+                <span>{groups.length} groups</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
+          <div className="flex items-center gap-3 relative">
+            {/* Notification Bell */}
+            <button
+              onClick={() => setShowNotificationCenter(!showNotificationCenter)}
+              className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-amber-500/30 transition-all"
+              title="Notifications"
+            >
+              <Bell size={20} />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Center Dropdown */}
+            {showNotificationCenter && (
+              <div className="absolute top-12 right-0 w-80 bg-[#1a1410] border border-white/20 rounded-2xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+                <div className="p-4 border-b border-white/10">
+                  <h3 className="text-white font-bold">Notifications</h3>
+                  {unreadNotificationsCount > 0 && (
+                    <button
+                      onClick={() => {
+                        fetch(`/api/notifications/mark-read`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ userId: user?.id })
+                        }).then(() => {
+                          setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+                          setUnreadNotificationsCount(0);
+                        });
+                      }}
+                      className="text-xs text-amber-500 hover:text-amber-400 mt-2"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-white/10">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">No notifications</div>
+                  ) : (
+                    notifications.slice(0, 10).map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => {
+                          if (!notif.is_read) markNotificationAsRead(notif.id);
+                          if (notif.roomId) setActiveRoom(notif.roomId);
+                          setShowNotificationCenter(false);
+                        }}
+                        className={`p-3 cursor-pointer hover:bg-white/5 transition-colors ${!notif.is_read ? 'bg-white/5' : ''}`}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm text-white font-medium">{notif.actor_name}</p>
+                            <p className="text-xs text-gray-400">{notif.action_text}</p>
+                            <p className="text-xs text-gray-600 mt-1">{new Date(notif.timestamp).toLocaleTimeString()}</p>
+                          </div>
+                          {!notif.is_read && <div className="w-2 h-2 rounded-full bg-amber-500 mt-1" />}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            <button
               onClick={handleLogout}
               className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
             >
@@ -1181,6 +1373,49 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {/* Quick Stats Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-amber-500/30 transition-colors">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-xs font-medium">MESSAGES</p>
+                <p className="text-2xl font-bold text-white mt-1">{totalUnreadCount}</p>
+              </div>
+              <MessageCircle className="text-amber-500 opacity-50" size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-amber-500/30 transition-colors">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-xs font-medium">CONFESSIONS</p>
+                <p className="text-2xl font-bold text-white mt-1">{freedomPosts.length}</p>
+              </div>
+              <Sparkles className="text-amber-500 opacity-50" size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-amber-500/30 transition-colors">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-xs font-medium">NOTIFICATIONS</p>
+                <p className="text-2xl font-bold text-white mt-1">{unreadNotificationsCount}</p>
+              </div>
+              <Bell className="text-amber-500 opacity-50" size={24} />
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-amber-500/30 transition-colors">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-xs font-medium">GROUPS</p>
+                <p className="text-2xl font-bold text-white mt-1">{groups.length}</p>
+              </div>
+              <Users className="text-amber-500 opacity-50" size={24} />
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Feed */}
@@ -3796,6 +4031,117 @@ export default function App() {
                 <Info size={24} />
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Global Search Modal */}
+      <AnimatePresence>
+        {globalSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setGlobalSearchOpen(false)}
+            className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-20"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: -20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: -20 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-2xl bg-[#1a1410] border border-white/20 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              {/* Search Input */}
+              <div className="p-4 border-b border-white/10 flex items-center gap-3">
+                <Search size={20} className="text-gray-500" />
+                <input
+                  type="text"
+                  value={globalSearchQuery}
+                  onChange={e => setGlobalSearchQuery(e.target.value)}
+                  placeholder="Search users, groups, confessions... (Cmd+K)"
+                  autoFocus
+                  className="flex-1 bg-transparent text-white placeholder-gray-600 outline-none text-lg"
+                />
+                <button
+                  onClick={() => setGlobalSearchOpen(false)}
+                  className="text-gray-500 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Search Results */}
+              <div className="max-h-96 overflow-y-auto divide-y divide-white/10">
+                {globalSearchLoading ? (
+                  <div className="p-8 text-center text-gray-500">Searching...</div>
+                ) : globalSearchResults.length === 0 && globalSearchQuery ? (
+                  <div className="p-8 text-center text-gray-500">No results found</div>
+                ) : globalSearchResults.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 text-sm">Start typing to search for users, groups, and more</div>
+                ) : (
+                  globalSearchResults.map((result) => (
+                    <button
+                      key={`${result.type}-${result.id}`}
+                      onClick={() => {
+                        if (result.type === 'user') {
+                          setActiveRoom(result.roomId);
+                          setView('messenger');
+                        } else if (result.type === 'group') {
+                          setActiveRoom(result.name.toLowerCase().replace(/\s+/g, '-'));
+                          setView('messenger');
+                        }
+                        setGlobalSearchOpen(false);
+                        setGlobalSearchQuery('');
+                      }}
+                      className="w-full p-4 text-left hover:bg-white/5 transition-colors flex items-center gap-3 group"
+                    >
+                      {result.type === 'user' && (
+                        <>
+                          <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
+                            {result.name[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-medium">{result.name}</p>
+                            <p className="text-xs text-gray-500">User</p>
+                          </div>
+                        </>
+                      )}
+                      {result.type === 'group' && (
+                        <>
+                          <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                            <Users size={18} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-medium">{result.name}</p>
+                            <p className="text-xs text-gray-500">{result.description?.substring(0, 50)}</p>
+                          </div>
+                        </>
+                      )}
+                      {result.type === 'confession' && (
+                        <>
+                          <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                            <Sparkles size={18} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-medium">By {result.alias}</p>
+                            <p className="text-xs text-gray-400">{result.content}...</p>
+                          </div>
+                        </>
+                      )}
+                      <ArrowRight className="opacity-0 group-hover:opacity-100 transition-opacity" size={16} />
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Keyboard Shortcut Hint */}
+              {globalSearchResults.length === 0 && !globalSearchQuery && (
+                <div className="p-4 bg-white/5 text-center text-sm text-gray-500">
+                  Press <kbd className="bg-white/10 px-2 py-1 rounded text-xs">Escape</kbd> to close
+                </div>
+              )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
