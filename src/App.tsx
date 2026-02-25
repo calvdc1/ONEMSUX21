@@ -433,6 +433,37 @@ export default function App() {
     return [];
   });
 
+  // Notification state
+  interface Notification {
+    id: number;
+    user_id: number;
+    type: string;
+    title: string;
+    body?: string;
+    related_user_id?: number;
+    related_room_id?: string;
+    related_post_id?: number;
+    read: number;
+    timestamp: string;
+  }
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+
+  // Global search state
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [globalSearchResults, setGlobalSearchResults] = useState<{
+    users: User[];
+    groups: { id: number; name: string; description: string; campus: string; logo_url?: string }[];
+    posts: { id: number; content: string; alias: string; campus: string; timestamp: string }[];
+    campuses: Campus[];
+  }>({ users: [], groups: [], posts: [], campuses: [] });
+
+  // Message reactions state
+  const [messageReactions, setMessageReactions] = useState<Record<number, { emoji: string; count: number }[]>>({});
+  const [userMessageReactions, setUserMessageReactions] = useState<Record<number, string[]>>({});
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       const nx = (e.clientX / window.innerWidth - 0.5) * 2;
@@ -580,6 +611,27 @@ export default function App() {
           removePeerConnection(data.userId);
         } else if (data.type === 'voice-signal') {
           handleVoiceSignal(data);
+        } else if (data.type === 'notification') {
+          // Handle incoming notification
+          setNotifications(prev => [data, ...prev]);
+          setUnreadNotificationsCount(prev => prev + 1);
+        } else if (data.type === 'message_reaction') {
+          // Handle message reaction
+          const { messageId, emoji, action } = data;
+          setMessageReactions(prev => {
+            const reactions = prev[messageId] || [];
+            if (action === 'add') {
+              const existing = reactions.find(r => r.emoji === emoji);
+              if (existing) {
+                return { ...prev, [messageId]: reactions.map(r => r.emoji === emoji ? { ...r, count: r.count + 1 } : r) };
+              } else {
+                return { ...prev, [messageId]: [...reactions, { emoji, count: 1 }] };
+              }
+            } else {
+              const updated = reactions.map(r => r.emoji === emoji ? { ...r, count: Math.max(0, r.count - 1) } : r).filter(r => r.count > 0);
+              return { ...prev, [messageId]: updated };
+            }
+          });
         }
       };
 
@@ -668,6 +720,66 @@ export default function App() {
       setStickyNotes([]);
     }
   }, [user]);
+
+  // Load notifications on login
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      fetch(`/api/notifications?userId=${user.id}`)
+        .then(r => r.json())
+        .then((data: Notification[]) => {
+          setNotifications(data);
+          const unreadCount = data.filter(n => n.read === 0).length;
+          setUnreadNotificationsCount(unreadCount);
+        })
+        .catch(err => console.error('Failed to load notifications:', err));
+    }
+  }, [isLoggedIn, user]);
+
+  // Global search keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+      }
+      if (e.key === 'Escape' && showGlobalSearch) {
+        setShowGlobalSearch(false);
+        setGlobalSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showGlobalSearch]);
+
+  // Global search functionality
+  useEffect(() => {
+    if (globalSearchQuery.trim().length === 0) {
+      setGlobalSearchResults({ users: [], groups: [], posts: [], campuses: [] });
+      return;
+    }
+
+    const query = globalSearchQuery.toLowerCase();
+    const results = {
+      users: searchResults.filter(u =>
+        u.name.toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query)
+      ).slice(0, 5),
+      groups: groups.filter(g =>
+        g.name.toLowerCase().includes(query) ||
+        g.description?.toLowerCase().includes(query)
+      ).slice(0, 5),
+      posts: freedomPosts.filter(p =>
+        p.content.toLowerCase().includes(query) ||
+        p.alias.toLowerCase().includes(query)
+      ).slice(0, 5),
+      campuses: CAMPUSES.filter(c =>
+        c.name.toLowerCase().includes(query) ||
+        c.location.toLowerCase().includes(query) ||
+        c.description.toLowerCase().includes(query)
+      )
+    };
+    setGlobalSearchResults(results);
+  }, [globalSearchQuery, searchResults, groups, freedomPosts]);
 
   const joinGroup = async (group: any) => {
     if (!user) return;
@@ -1101,6 +1213,53 @@ export default function App() {
     localStorage.removeItem('onemsu_user');
   };
 
+  const markNotificationAsRead = async (notificationId: number) => {
+    try {
+      await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' });
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: 1 } : n));
+      setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    if (!user) return;
+    try {
+      await fetch('/api/notifications/read-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, read: 1 })));
+      setUnreadNotificationsCount(0);
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const addMessageReaction = (messageId: number, emoji: string) => {
+    if (!user) return;
+    socketRef.current?.send(JSON.stringify({
+      type: 'react_message',
+      messageId,
+      userId: user.id,
+      emoji,
+      roomId: activeRoom
+    }));
+  };
+
+  const removeMessageReaction = (messageId: number, emoji: string) => {
+    if (!user) return;
+    socketRef.current?.send(JSON.stringify({
+      type: 'unreact_message',
+      messageId,
+      userId: user.id,
+      emoji,
+      roomId: activeRoom
+    }));
+  };
+
   const handleForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -1166,14 +1325,107 @@ export default function App() {
     <div className="h-full w-full bg-[#0a0502] p-4 md:p-8 lg:p-12 overflow-y-auto scrollbar-hide">
       <div className="max-w-7xl mx-auto pb-20">
         <header className="flex justify-between items-center mb-12">
-          <div className="flex items-center gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
-              <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
+          <div className="flex items-center gap-4 flex-1">
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-white">Good morning, {user?.name || 'MSUan'}! 👋</h2>
+              <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-400">
+                  <MessageCircle size={14} className="text-amber-500" />
+                  <span className="font-medium">{Object.values(unreadCounts).reduce((a, b) => a + b, 0)} unreads in messenger</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Sparkles size={14} className="text-rose-500" />
+                  <span className="font-medium">{freedomPosts.length} confessions</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Users size={14} className="text-sky-500" />
+                  <span className="font-medium">{onlineUsers.length} online</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
+          <div className="flex items-center gap-4">
+            {/* Notification Bell */}
+            <div className="relative">
+              <motion.button
+                onClick={() => setShowNotificationCenter(!showNotificationCenter)}
+                className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-amber-500/30 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Bell size={20} />
+                {unreadNotificationsCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg shadow-rose-900/40"
+                  >
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </motion.span>
+                )}
+              </motion.button>
+
+              {/* Notification Dropdown */}
+              <AnimatePresence>
+                {showNotificationCenter && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    className="absolute right-0 mt-2 w-96 bg-[#1a1410] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 max-h-96 overflow-y-auto scrollbar-hide"
+                  >
+                    <div className="p-4 border-b border-white/10 sticky top-0 bg-[#1a1410]">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-white flex items-center gap-2"><Bell size={18} className="text-amber-500" /> Notifications</h3>
+                        {unreadNotificationsCount > 0 && (
+                          <button
+                            onClick={markAllNotificationsAsRead}
+                            className="text-xs text-amber-500 hover:text-amber-400 font-medium"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <Bell size={32} className="mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No notifications yet</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-white/5">
+                        {notifications.map(notif => (
+                          <motion.div
+                            key={notif.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className={`p-4 cursor-pointer transition-colors ${notif.read === 0 ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-white/5'}`}
+                            onClick={() => {
+                              if (notif.read === 0) markNotificationAsRead(notif.id);
+                              if (notif.related_room_id) {
+                                setActiveRoom(notif.related_room_id);
+                                setView('messenger');
+                                setShowNotificationCenter(false);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-start gap-2 mb-1">
+                              <h4 className="font-semibold text-white text-sm">{notif.title}</h4>
+                              {notif.read === 0 && <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0" />}
+                            </div>
+                            {notif.body && <p className="text-xs text-gray-400 mb-2">{notif.body}</p>}
+                            <p className="text-xs text-gray-500">{new Date(notif.timestamp).toLocaleDateString()} {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <button
               onClick={handleLogout}
               className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
             >
@@ -3796,6 +4048,159 @@ export default function App() {
                 <Info size={24} />
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Global Search Modal */}
+      <AnimatePresence>
+        {showGlobalSearch && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => { setShowGlobalSearch(false); setGlobalSearchQuery(''); }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-20"
+          >
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl"
+            >
+              <div className="bg-[#1a1410] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+                {/* Search Input */}
+                <div className="p-4 border-b border-white/10 flex items-center gap-3">
+                  <Search size={20} className="text-amber-500" />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search users, groups, posts, campuses... (press ESC to close)"
+                    value={globalSearchQuery}
+                    onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                    className="flex-1 bg-transparent text-white text-lg focus:outline-none placeholder-gray-500"
+                  />
+                </div>
+
+                {/* Search Results */}
+                <div className="max-h-96 overflow-y-auto scrollbar-hide">
+                  {globalSearchQuery.trim().length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <Search size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Start typing to search across ONEMSU</p>
+                      <p className="text-xs mt-2 opacity-70">Users • Groups • Posts • Campuses</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-white/5">
+                      {/* Users */}
+                      {globalSearchResults.users.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 text-xs font-bold text-amber-500 bg-white/5">USERS</div>
+                          {globalSearchResults.users.map(u => (
+                            <div
+                              key={u.id}
+                              onClick={() => {
+                                setSelectedProfileId(u.id);
+                                setShowGlobalSearch(false);
+                                setGlobalSearchQuery('');
+                              }}
+                              className="px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors flex items-center gap-3"
+                            >
+                              {u.avatar && <img src={u.avatar} alt="" className="w-8 h-8 rounded-full" />}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white font-medium text-sm">{u.name}</p>
+                                <p className="text-gray-500 text-xs truncate">{u.email}</p>
+                              </div>
+                              <span className="text-[10px] text-gray-500 flex-shrink-0">{u.campus}</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Groups */}
+                      {globalSearchResults.groups.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 text-xs font-bold text-sky-500 bg-white/5">GROUPS</div>
+                          {globalSearchResults.groups.map(g => (
+                            <div
+                              key={g.id}
+                              onClick={() => {
+                                setActiveRoom(g.name.toLowerCase().replace(/\s+/g, '-'));
+                                setView('messenger');
+                                setShowGlobalSearch(false);
+                                setGlobalSearchQuery('');
+                              }}
+                              className="px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors"
+                            >
+                              <p className="text-white font-medium text-sm">{g.name}</p>
+                              <p className="text-gray-500 text-xs truncate">{g.description}</p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Posts */}
+                      {globalSearchResults.posts.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 text-xs font-bold text-rose-500 bg-white/5">CONFESSIONS</div>
+                          {globalSearchResults.posts.map(p => (
+                            <div
+                              key={p.id}
+                              onClick={() => {
+                                setView('confession');
+                                setShowGlobalSearch(false);
+                                setGlobalSearchQuery('');
+                              }}
+                              className="px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors"
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <p className="text-white text-sm line-clamp-2">{p.content}</p>
+                                <span className="text-[10px] text-gray-500 flex-shrink-0">{p.campus}</span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">{p.alias}</p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Campuses */}
+                      {globalSearchResults.campuses.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 text-xs font-bold text-emerald-500 bg-white/5">CAMPUSES</div>
+                          {globalSearchResults.campuses.map(c => (
+                            <div
+                              key={c.slug}
+                              onClick={() => {
+                                setSelectedCampus(c);
+                                setShowGlobalSearch(false);
+                                setGlobalSearchQuery('');
+                              }}
+                              className="px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors"
+                            >
+                              <p className="text-white font-medium text-sm">{c.name}</p>
+                              <p className="text-gray-500 text-xs flex items-center gap-1 mt-1">
+                                <MapPin size={12} /> {c.location}
+                              </p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* No results */}
+                      {globalSearchResults.users.length === 0 &&
+                        globalSearchResults.groups.length === 0 &&
+                        globalSearchResults.posts.length === 0 &&
+                        globalSearchResults.campuses.length === 0 && (
+                        <div className="p-8 text-center text-gray-500">
+                          <p className="text-sm">No results found for "{globalSearchQuery}"</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

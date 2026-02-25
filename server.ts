@@ -72,7 +72,7 @@ try {
     user_id INTEGER,
     PRIMARY KEY (group_id, user_id)
   );
-  
+
   CREATE TABLE IF NOT EXISTS freedom_posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -83,6 +83,28 @@ try {
     likes INTEGER DEFAULT 0,
     reports INTEGER DEFAULT 0,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    type TEXT,
+    title TEXT,
+    body TEXT,
+    related_user_id INTEGER,
+    related_room_id TEXT,
+    related_post_id INTEGER,
+    read INTEGER DEFAULT 0,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS message_reactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER,
+    user_id INTEGER,
+    emoji TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(message_id, user_id, emoji)
   );
 `);
 } catch (err: any) {
@@ -141,6 +163,28 @@ try {
         likes INTEGER DEFAULT 0,
         reports INTEGER DEFAULT 0,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        type TEXT,
+        title TEXT,
+        body TEXT,
+        related_user_id INTEGER,
+        related_room_id TEXT,
+        related_post_id INTEGER,
+        read INTEGER DEFAULT 0,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS message_reactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER,
+        user_id INTEGER,
+        emoji TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(message_id, user_id, emoji)
       );
     `);
   } else {
@@ -447,6 +491,70 @@ async function startServer() {
     res.json(users);
   });
 
+  app.get("/api/notifications", (req, res) => {
+    const userId = Number(req.query.userId);
+    if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+    const notifications = db.prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY timestamp DESC LIMIT 50").all(userId);
+    res.json(notifications);
+  });
+
+  app.get("/api/notifications/unread-count", (req, res) => {
+    const userId = Number(req.query.userId);
+    if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+    const result = db.prepare("SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0").get(userId) as { count: number };
+    res.json({ count: result.count });
+  });
+
+  app.post("/api/notifications/:id/read", (req, res) => {
+    const id = Number(req.params.id);
+    db.prepare("UPDATE notifications SET read = 1 WHERE id = ?").run(id);
+    res.json({ success: true });
+  });
+
+  app.post("/api/notifications/read-all", (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+    db.prepare("UPDATE notifications SET read = 1 WHERE user_id = ?").run(userId);
+    res.json({ success: true });
+  });
+
+  app.post("/api/notifications", (req, res) => {
+    const { userId, type, title, body, relatedUserId, relatedRoomId, relatedPostId } = req.body;
+    if (!userId || !type || !title) return res.status(400).json({ success: false, message: "Missing required fields" });
+    const info = db.prepare("INSERT INTO notifications (user_id, type, title, body, related_user_id, related_room_id, related_post_id) VALUES (?, ?, ?, ?, ?, ?, ?)").run(userId, type, title, body || null, relatedUserId || null, relatedRoomId || null, relatedPostId || null);
+    const notification = db.prepare("SELECT * FROM notifications WHERE id = ?").get(info.lastInsertRowid);
+    res.json({ success: true, notification });
+  });
+
+  app.post("/api/messages/:id/reactions", (req, res) => {
+    const messageId = Number(req.params.id);
+    const { userId, emoji } = req.body;
+    if (!userId || !emoji) return res.status(400).json({ success: false, message: "Missing userId or emoji" });
+    try {
+      const info = db.prepare("INSERT INTO message_reactions (message_id, user_id, emoji) VALUES (?, ?, ?)").run(messageId, userId, emoji);
+      const reaction = db.prepare("SELECT * FROM message_reactions WHERE id = ?").get(info.lastInsertRowid);
+      res.json({ success: true, reaction });
+    } catch (err) {
+      res.status(400).json({ success: false, message: "Reaction already exists or invalid" });
+    }
+  });
+
+  app.delete("/api/messages/:id/reactions/:emoji", (req, res) => {
+    const messageId = Number(req.params.id);
+    const emoji = req.params.emoji;
+    const userId = Number(req.query.userId);
+    if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+    db.prepare("DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?").run(messageId, userId, emoji);
+    res.json({ success: true });
+  });
+
+  app.get("/api/messages/:id/reactions", (req, res) => {
+    const messageId = Number(req.params.id);
+    const reactions = db.prepare("SELECT emoji, COUNT(*) as count FROM message_reactions WHERE message_id = ? GROUP BY emoji ORDER BY count DESC").all(messageId) as Array<{ emoji: string; count: number }>;
+    const userReactions = req.query.userId ? db.prepare("SELECT emoji FROM message_reactions WHERE message_id = ? AND user_id = ?").all(messageId, Number(req.query.userId)) as Array<{ emoji: string }> : [];
+    res.json({ reactions, userReactions: userReactions.map(r => r.emoji) });
+  });
+
   // WebSocket Logic
   const clients = new Map<WebSocket, { userId: number; roomId: string }>();
 
@@ -527,6 +635,52 @@ async function startServer() {
       } else if (message.type === "presence_ping") {
         const { userId } = message;
         db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(userId);
+      } else if (message.type === "notify") {
+        const { userId, type, title, body, relatedUserId, relatedRoomId, relatedPostId } = message;
+        // Create notification in DB
+        const result = db.prepare("INSERT INTO notifications (user_id, type, title, body, related_user_id, related_room_id, related_post_id) VALUES (?, ?, ?, ?, ?, ?, ?)").run(userId, type, title, body || null, relatedUserId || null, relatedRoomId || null, relatedPostId || null);
+        const notification = { id: result.lastInsertRowid, userId, type, title, body, related_user_id: relatedUserId, related_room_id: relatedRoomId, related_post_id: relatedPostId, read: 0, timestamp: new Date().toISOString() };
+
+        // Broadcast to user if they're connected
+        const payload = JSON.stringify({ type: "notification", ...notification });
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            const clientData = clients.get(client);
+            if (clientData && clientData.userId === userId) {
+              client.send(payload);
+            }
+          }
+        });
+      } else if (message.type === "react_message") {
+        const { messageId, userId, emoji, roomId } = message;
+        try {
+          db.prepare("INSERT INTO message_reactions (message_id, user_id, emoji) VALUES (?, ?, ?)").run(messageId, userId, emoji);
+          // Broadcast reaction to room
+          const payload = JSON.stringify({ type: "message_reaction", messageId, userId, emoji, roomId, action: "add" });
+          wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              const clientData = clients.get(client);
+              if (clientData && clientData.roomId === roomId) {
+                client.send(payload);
+              }
+            }
+          });
+        } catch (e) {
+          // Reaction might already exist
+        }
+      } else if (message.type === "unreact_message") {
+        const { messageId, userId, emoji, roomId } = message;
+        db.prepare("DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?").run(messageId, userId, emoji);
+        // Broadcast reaction removal to room
+        const payload = JSON.stringify({ type: "message_reaction", messageId, userId, emoji, roomId, action: "remove" });
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            const clientData = clients.get(client);
+            if (clientData && clientData.roomId === roomId) {
+              client.send(payload);
+            }
+          }
+        });
       }
     });
 
