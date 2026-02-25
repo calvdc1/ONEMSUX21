@@ -72,7 +72,7 @@ try {
     user_id INTEGER,
     PRIMARY KEY (group_id, user_id)
   );
-  
+
   CREATE TABLE IF NOT EXISTS freedom_posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -82,6 +82,19 @@ try {
     image_url TEXT,
     likes INTEGER DEFAULT 0,
     reports INTEGER DEFAULT 0,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    type TEXT,
+    actor_id INTEGER,
+    actor_name TEXT,
+    action_text TEXT,
+    reference_id INTEGER,
+    room_id TEXT,
+    is_read INTEGER DEFAULT 0,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
@@ -140,6 +153,18 @@ try {
         image_url TEXT,
         likes INTEGER DEFAULT 0,
         reports INTEGER DEFAULT 0,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        type TEXT,
+        actor_id INTEGER,
+        actor_name TEXT,
+        action_text TEXT,
+        reference_id INTEGER,
+        room_id TEXT,
+        is_read INTEGER DEFAULT 0,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -384,6 +409,54 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // Notification endpoints - MORE SPECIFIC ROUTES FIRST
+  app.get("/api/notifications/:userId/unread-count", (req, res) => {
+    const userId = Number(req.params.userId);
+
+    try {
+      const result = db.prepare(`
+        SELECT COUNT(*) as count FROM notifications
+        WHERE user_id = ? AND is_read = 0
+      `).get(userId) as { count: number };
+
+      res.json({ unreadCount: result?.count || 0 });
+    } catch (err) {
+      console.error("Error fetching unread count:", err);
+      res.json({ unreadCount: 0 });
+    }
+  });
+
+  app.get("/api/notifications/:userId", (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const limit = Number(req.query.limit) || 50;
+
+      const notifications = db.prepare(`
+        SELECT * FROM notifications
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `).all(userId, limit);
+
+      res.json(notifications || []);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      res.json([]);
+    }
+  });
+
+  app.post("/api/notifications/mark-read", (req, res) => {
+    const { notificationId, userId } = req.body;
+
+    if (notificationId) {
+      db.prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?").run(notificationId, userId);
+    } else {
+      db.prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ?").run(userId);
+    }
+
+    res.json({ success: true });
+  });
+
   app.get("/api/messenger/recent-dms", (req, res) => {
     const userId = Number(req.query.userId);
     const rows = db.prepare(`
@@ -469,14 +542,46 @@ async function startServer() {
         db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(message.userId);
         broadcastToAll({ type: 'presence_update', userId: message.userId, status: 'online' });
       } else if (message.type === "chat") {
-        const { senderId, senderName, content, roomId, mediaUrl, mediaType } = message;
-        
+        const { senderId, senderName, content, roomId, mediaUrl, mediaType, clientId } = message;
+
         // Save to DB
         const result = db.prepare("INSERT INTO messages (sender_id, sender_name, content, room_id, media_url, media_type) VALUES (?, ?, ?, ?, ?, ?)").run(senderId, senderName, content, roomId, mediaUrl || null, mediaType || null);
         const msgId = result.lastInsertRowid;
 
         // Update presence
         db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(senderId);
+
+        // Create notification for DM recipient
+        if (roomId.startsWith("dm-")) {
+          const parts = roomId.split("-");
+          if (parts.length === 3) {
+            const recipientId = Number(parts[1]) === senderId ? Number(parts[2]) : Number(parts[1]);
+            db.prepare(`
+              INSERT INTO notifications (user_id, type, actor_id, actor_name, action_text, reference_id, room_id, is_read)
+              VALUES (?, 'message_received', ?, ?, 'sent you a message', ?, ?, 0)
+            `).run(recipientId, senderId, senderName, msgId, roomId);
+
+            // Broadcast notification
+            const notifPayload = JSON.stringify({
+              type: "notification",
+              id: msgId,
+              notificationType: "message_received",
+              actorId: senderId,
+              actorName: senderName,
+              actionText: "sent you a message",
+              roomId
+            });
+
+            wss.clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
+                const clientData = clients.get(client);
+                if (clientData && clientData.userId === recipientId) {
+                  client.send(notifPayload);
+                }
+              }
+            });
+          }
+        }
 
         // Broadcast to room
         const payload = JSON.stringify({
@@ -488,6 +593,7 @@ async function startServer() {
           roomId,
           mediaUrl,
           mediaType,
+          clientId,
           timestamp: new Date().toISOString()
         });
 
