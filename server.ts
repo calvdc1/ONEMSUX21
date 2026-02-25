@@ -28,7 +28,21 @@ try {
     sender_name TEXT,
     content TEXT,
     room_id TEXT,
+    media_url TEXT,
+    media_type TEXT,
+    deleted_for_all INTEGER DEFAULT 0,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS deleted_messages (
+    message_id INTEGER,
+    user_id INTEGER,
+    PRIMARY KEY (message_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS presence (
+    user_id INTEGER PRIMARY KEY,
+    last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS read_receipts (
@@ -51,6 +65,12 @@ try {
     user_id INTEGER,
     content TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  
+  CREATE TABLE IF NOT EXISTS group_members (
+    group_id INTEGER,
+    user_id INTEGER,
+    PRIMARY KEY (group_id, user_id)
   );
   
   CREATE TABLE IF NOT EXISTS freedom_posts (
@@ -83,6 +103,8 @@ try {
         sender_name TEXT,
         content TEXT,
         room_id TEXT,
+        media_url TEXT,
+        media_type TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE IF NOT EXISTS read_receipts (
@@ -104,6 +126,11 @@ try {
         content TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS group_members (
+        group_id INTEGER,
+        user_id INTEGER,
+        PRIMARY KEY (group_id, user_id)
+      );
       CREATE TABLE IF NOT EXISTS freedom_posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -121,6 +148,8 @@ try {
   }
 }
 
+try { db.exec(`ALTER TABLE messages ADD COLUMN media_url TEXT`); } catch {}
+try { db.exec(`ALTER TABLE messages ADD COLUMN media_type TEXT`); } catch {}
 try { db.exec(`ALTER TABLE groups ADD COLUMN logo_url TEXT`); } catch {}
 try { db.exec(`ALTER TABLE freedom_posts ADD COLUMN image_url TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN student_id TEXT`); } catch {}
@@ -185,7 +214,47 @@ async function startServer() {
     res.json({ success: true, user });
   });
   app.get("/api/groups", (req, res) => {
-    const groups = db.prepare("SELECT * FROM groups ORDER BY name ASC").all();
+    const userId = req.query.userId ? Number(req.query.userId) : null;
+    const joinedOnly = req.query.joined === "true";
+    
+    let groups;
+    if (joinedOnly && userId) {
+      groups = db.prepare(`
+        SELECT g.* FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE gm.user_id = ?
+        ORDER BY g.name ASC
+      `).all(userId);
+    } else {
+      groups = db.prepare("SELECT * FROM groups ORDER BY name ASC").all();
+    }
+    res.json(groups);
+  });
+  app.post("/api/groups/:id/join", (req, res) => {
+    const groupId = Number(req.params.id);
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+    try {
+      db.prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)").run(groupId, userId);
+      res.json({ success: true });
+    } catch (err) {
+      res.json({ success: true, message: "Already joined" });
+    }
+  });
+  app.post("/api/groups/:id/leave", (req, res) => {
+    const groupId = Number(req.params.id);
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: "Missing userId" });
+    db.prepare("DELETE FROM group_members WHERE group_id = ? AND user_id = ?").run(groupId, userId);
+    res.json({ success: true });
+  });
+  app.get("/api/users/:id/groups", (req, res) => {
+    const userId = Number(req.params.id);
+    const groups = db.prepare(`
+      SELECT g.* FROM groups g
+      JOIN group_members gm ON g.id = gm.group_id
+      WHERE gm.user_id = ?
+    `).all(userId);
     res.json(groups);
   });
   app.post("/api/groups", (req, res) => {
@@ -230,12 +299,12 @@ async function startServer() {
     if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
       return res.status(400).json({ success: false, message: "Invalid dataUrl" });
     }
-    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    const match = dataUrl.match(/^data:((image|video)\/\w+);base64,(.+)$/);
     if (!match) {
-      return res.status(400).json({ success: false, message: "Only base64 image data is supported" });
+      return res.status(400).json({ success: false, message: "Only base64 image or video data is supported" });
     }
     const mime = match[1];
-    const base64 = match[2];
+    const base64 = match[3];
     const ext = mime.split("/")[1].toLowerCase();
     const uploadsDir = path.join(__dirname, "public", "uploads");
     try {
@@ -244,9 +313,9 @@ async function startServer() {
       const filePath = path.join(uploadsDir, name);
       fs.writeFileSync(filePath, Buffer.from(base64, "base64"));
       const url = `/uploads/${name}`;
-      res.json({ success: true, url });
+      res.json({ success: true, url, mimeType: mime });
     } catch (e) {
-      res.status(500).json({ success: false, message: "Failed to save image" });
+      res.status(500).json({ success: false, message: "Failed to save file" });
     }
   });
   app.post("/api/auth/login", (req, res) => {
@@ -272,24 +341,79 @@ async function startServer() {
 
   app.get("/api/messages/:roomId", (req, res) => {
     const roomId = req.params.roomId;
+    const userId = Number(req.query.userId);
     const before = req.query.before as string | undefined;
     const pageSize = 50;
+    
     let rows: any[] = [];
+    const queryBase = `
+      SELECT m.* FROM messages m
+      LEFT JOIN deleted_messages dm ON m.id = dm.message_id AND dm.user_id = ?
+      WHERE m.room_id = ? AND m.deleted_for_all = 0 AND dm.message_id IS NULL
+    `;
+
     if (before) {
-      rows = db
-        .prepare(
-          "SELECT * FROM messages WHERE room_id = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT ?"
-        )
-        .all(roomId, before, pageSize);
+      rows = db.prepare(`${queryBase} AND m.timestamp < ? ORDER BY m.timestamp DESC LIMIT ?`).all(userId, roomId, before, pageSize);
     } else {
-      rows = db
-        .prepare(
-          "SELECT * FROM messages WHERE room_id = ? ORDER BY timestamp DESC LIMIT ?"
-        )
-        .all(roomId, pageSize);
+      rows = db.prepare(`${queryBase} ORDER BY m.timestamp DESC LIMIT ?`).all(userId, roomId, pageSize);
     }
-    // Return ascending order for UI
     res.json(rows.reverse());
+  });
+
+  app.delete("/api/messages/:id", (req, res) => {
+    const id = Number(req.params.id);
+    const { userId, forEveryone } = req.body;
+    
+    const msg = db.prepare("SELECT sender_id FROM messages WHERE id = ?").get(id) as { sender_id: number } | undefined;
+    if (!msg) return res.status(404).json({ success: false });
+
+    if (forEveryone && msg.sender_id === userId) {
+      db.prepare("UPDATE messages SET deleted_for_all = 1 WHERE id = ?").run(id);
+    } else {
+      db.prepare("INSERT OR IGNORE INTO deleted_messages (message_id, user_id) VALUES (?, ?)").run(id, userId);
+    }
+    res.json({ success: true });
+  });
+
+  app.post("/api/messages/clear", (req, res) => {
+    const { userId, roomId } = req.body;
+    db.prepare(`
+      INSERT OR IGNORE INTO deleted_messages (message_id, user_id)
+      SELECT id, ? FROM messages WHERE room_id = ?
+    `).run(userId, roomId);
+    res.json({ success: true });
+  });
+
+  app.get("/api/messenger/recent-dms", (req, res) => {
+    const userId = Number(req.query.userId);
+    const rows = db.prepare(`
+      SELECT DISTINCT 
+        CASE WHEN sender_id = ? THEN room_id ELSE room_id END as room,
+        CASE WHEN sender_id = ? THEN room_id ELSE room_id END as partner_id
+      FROM messages 
+      WHERE room_id LIKE 'dm-%' AND (sender_id = ? OR room_id LIKE '%-' || ? OR room_id LIKE 'dm-' || ? || '-%')
+      ORDER BY timestamp DESC LIMIT 20
+    `).all(userId, userId, userId, userId, userId);
+    
+    // Better query to get unique partners
+    const partners = db.prepare(`
+      SELECT DISTINCT u.id, u.name, u.avatar, u.campus
+      FROM users u
+      JOIN messages m ON (
+        (m.room_id LIKE 'dm-' || ? || '-%' AND u.id = CAST(SUBSTR(m.room_id, INSTR(m.room_id, '-') + INSTR(SUBSTR(m.room_id, INSTR(m.room_id, '-') + 1), '-') + 1) AS INTEGER))
+        OR 
+        (m.room_id LIKE 'dm-%-' || ? AND u.id = CAST(SUBSTR(m.room_id, INSTR(m.room_id, '-') + 1, INSTR(SUBSTR(m.room_id, INSTR(m.room_id, '-') + 1), '-') - 1) AS INTEGER))
+      )
+      WHERE u.id != ?
+    `).all(userId, userId, userId);
+
+    res.json(partners);
+  });
+
+  app.get("/api/presence", (req, res) => {
+    const threshold = new Date(Date.now() - 60000).toISOString(); // 1 minute
+    const activeUsers = db.prepare("SELECT user_id FROM presence WHERE last_seen > ?").all(threshold);
+    res.json(activeUsers.map((u: any) => u.user_id));
   });
 
   app.get("/api/receipts/:roomId", (req, res) => {
@@ -326,25 +450,44 @@ async function startServer() {
   // WebSocket Logic
   const clients = new Map<WebSocket, { userId: number; roomId: string }>();
 
+  const broadcastToAll = (payload: any) => {
+    const data = JSON.stringify(payload);
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(data);
+      }
+    });
+  };
+
   wss.on("connection", (ws) => {
     ws.on("message", (data) => {
       const message = JSON.parse(data.toString());
 
       if (message.type === "join") {
         clients.set(ws, { userId: message.userId, roomId: message.roomId });
+        // Mark as online
+        db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(message.userId);
+        broadcastToAll({ type: 'presence_update', userId: message.userId, status: 'online' });
       } else if (message.type === "chat") {
-        const { senderId, senderName, content, roomId } = message;
+        const { senderId, senderName, content, roomId, mediaUrl, mediaType } = message;
         
         // Save to DB
-        db.prepare("INSERT INTO messages (sender_id, sender_name, content, room_id) VALUES (?, ?, ?, ?)").run(senderId, senderName, content, roomId);
+        const result = db.prepare("INSERT INTO messages (sender_id, sender_name, content, room_id, media_url, media_type) VALUES (?, ?, ?, ?, ?, ?)").run(senderId, senderName, content, roomId, mediaUrl || null, mediaType || null);
+        const msgId = result.lastInsertRowid;
+
+        // Update presence
+        db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(senderId);
 
         // Broadcast to room
         const payload = JSON.stringify({
           type: "chat",
+          id: msgId,
           senderId,
           senderName,
           content,
           roomId,
+          mediaUrl,
+          mediaType,
           timestamp: new Date().toISOString()
         });
 
@@ -366,13 +509,33 @@ async function startServer() {
           if (exists) {
             db.prepare("UPDATE read_receipts SET last_read = ? WHERE user_id = ? AND room_id = ?").run(lastRead, userId, roomId);
           } else {
-            db.prepare("INSERT INTO read_receipts (user_id, room_id, last_read) VALUES (?, ?, ?)").run(userId, roomId, lastRead);
+            db.prepare("INSERT INTO read_receipts (user_id, room_id, last_read) VALUES (?, ?)").run(lastRead, userId, roomId);
           }
         }
+      } else if (message.type === "delete_message") {
+        const { messageId, userId, forEveryone, roomId } = message;
+        // Broadcast deletion to room
+        const payload = JSON.stringify({ type: 'message_deleted', messageId, userId, forEveryone, roomId });
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            const clientData = clients.get(client);
+            if (clientData && clientData.roomId === roomId) {
+              client.send(payload);
+            }
+          }
+        });
+      } else if (message.type === "presence_ping") {
+        const { userId } = message;
+        db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(userId);
       }
     });
 
     ws.on("close", () => {
+      const clientData = clients.get(ws);
+      if (clientData) {
+        // We could mark as offline here, but heartbeats are more reliable
+        // broadcastToAll({ type: 'presence_update', userId: clientData.userId, status: 'offline' });
+      }
       clients.delete(ws);
     });
   });

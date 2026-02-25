@@ -31,7 +31,12 @@ import {
   Settings,
   LogOut,
   User as UserIcon,
-  Plus
+  Plus,
+  Sun,
+  Moon,
+  Trash2,
+  ChevronLeft,
+  UserPlus
 } from 'lucide-react';
 
 // --- Types ---
@@ -50,6 +55,8 @@ interface Message {
   sender_name: string;
   content: string;
   room_id: string;
+  media_url?: string;
+  media_type?: string;
   timestamp: string;
 }
 
@@ -210,12 +217,32 @@ export default function App() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('onemsu_dark') === 'true';
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('onemsu_dark', darkMode.toString());
+  }, [darkMode]);
+
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('onemsu_auth') === 'true';
     }
     return false;
   });
+  const [activeUsers, setActiveUsers] = useState<number[]>([]);
+  const [recentDMs, setRecentDMs] = useState<User[]>([]);
+  const [viewingProfile, setViewingProfile] = useState<User | null>(null);
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('onemsu_user');
@@ -236,6 +263,7 @@ export default function App() {
   const [hasMore, setHasMore] = useState(true);
   const [otherLastRead, setOtherLastRead] = useState<string | null>(null);
   const [groups, setGroups] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string }[]>([]);
+  const [joinedGroups, setJoinedGroups] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string }[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [feedbacks, setFeedbacks] = useState<{ id: number; user_id: number; content: string; timestamp: string }[]>([]);
   const [feedbackText, setFeedbackText] = useState('');
@@ -285,6 +313,8 @@ export default function App() {
     }
   };
 
+  const virtuosoRef = useRef<any>(null);
+
   const [enrolledCourses, setEnrolledCourses] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('onemsu_courses');
@@ -314,21 +344,55 @@ export default function App() {
   }, [enrolledCourses]);
 
   useEffect(() => {
-    if (view === 'dashboard' || view === 'explorer') {
+    if (view === 'dashboard' || view === 'explorer' || view === 'messenger') {
       setLoadingGroups(true);
       fetch('/api/groups')
         .then((res) => res.json())
         .then((data) => setGroups(data))
         .finally(() => setLoadingGroups(false));
-      fetch('/api/feedbacks')
-        .then((res) => res.json())
-        .then((data) => setFeedbacks(data));
-      const campusParam = user?.campus ? `?campus=${encodeURIComponent(user.campus)}` : '';
-      fetch(`/api/freedomwall${campusParam}`)
-        .then((res) => res.json())
-        .then((data) => setFreedomPosts(data));
+      
+      if (user) {
+        fetch(`/api/users/${user.id}/groups`)
+          .then(res => res.json())
+          .then(data => setJoinedGroups(data));
+        
+        // Fetch recent DMs
+        fetch(`/api/messenger/recent-dms?userId=${user.id}`)
+          .then(r => r.json())
+          .then(setRecentDMs);
+      }
+
+      if (view !== 'messenger') {
+        fetch('/api/feedbacks')
+          .then((res) => res.json())
+          .then((data) => setFeedbacks(data));
+        // Highlights should show posts from all campuses
+        fetch(`/api/freedomwall`)
+          .then((res) => res.json())
+          .then((data) => setFreedomPosts(data));
+      }
     }
-  }, [view]);
+  }, [view, user]);
+
+  useEffect(() => {
+    if (user) {
+      const fetchPresence = () => {
+        fetch('/api/presence')
+          .then(r => r.json())
+          .then(setActiveUsers);
+      };
+      
+      fetchPresence();
+      const interval = setInterval(() => {
+        fetchPresence();
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+          socketRef.current.send(JSON.stringify({ type: 'presence_ping', userId: user.id }));
+        }
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user]);
   useEffect(() => {
     if (isLoggedIn && view === 'home') setView('dashboard');
   }, [isLoggedIn, view]);
@@ -347,6 +411,18 @@ export default function App() {
         const data = JSON.parse(event.data);
         if (data.type === 'chat' && data.roomId === activeRoom) {
           setMessages(prev => [...prev, data]);
+        } else if (data.type === 'message_deleted' && data.roomId === activeRoom) {
+          if (data.forEveryone) {
+            setMessages(prev => prev.filter(m => (m as any).id !== data.messageId));
+          }
+        } else if (data.type === 'presence_update') {
+          setActiveUsers(prev => {
+            if (data.status === 'online') {
+              return prev.includes(data.userId) ? prev : [...prev, data.userId];
+            } else {
+              return prev.filter(id => id !== data.userId);
+            }
+          });
         }
       };
 
@@ -364,18 +440,17 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isLoggedIn && activeRoom) {
+    if (isLoggedIn && activeRoom && user) {
       setHasMore(true);
-      fetch(`/api/messages/${activeRoom}`)
+      fetch(`/api/messages/${activeRoom}?userId=${user.id}`)
         .then(res => res.json())
         .then((data: Message[]) => {
           setMessages(data);
           setHasMore(data.length >= 50);
-          // On room change, stick to bottom
+          // On room change, scroll to bottom
           requestAnimationFrame(() => {
-            if (scrollRef.current) {
-              scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-              stickToBottomRef.current = true;
+            if (virtuosoRef.current) {
+              virtuosoRef.current.scrollToIndex({ index: data.length - 1, align: 'end' });
             }
           });
           if (activeRoom.startsWith('dm-') && user) {
@@ -429,6 +504,53 @@ export default function App() {
     }
   }, [user]);
 
+  const deleteMessage = async (msgId: number, forEveryone: boolean) => {
+    if (!user) return;
+    const res = await fetch(`/api/messages/${msgId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, forEveryone })
+    }).then(r => r.json());
+    
+    if (res.success && socketRef.current) {
+      socketRef.current.send(JSON.stringify({
+        type: 'delete_message',
+        messageId: msgId,
+        userId: user.id,
+        forEveryone,
+        roomId: activeRoom
+      }));
+    }
+  };
+
+  const clearChat = async () => {
+    if (!user) return;
+    const res = await fetch('/api/messages/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, roomId: activeRoom })
+    }).then(r => r.json());
+    if (res.success) {
+      setMessages([]);
+    }
+  };
+
+  const joinGroup = async (group: any) => {
+    if (!user) return;
+    const res = await fetch(`/api/groups/${group.id}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id })
+    }).then(r => r.json());
+    if (res.success) {
+      setJoinedGroups(prev => {
+        if (prev.some(g => g.id === group.id)) return prev;
+        return [...prev, group];
+      });
+      setActiveRoom(group.name.toLowerCase().replace(/\s+/g, '-'));
+      setView('messenger');
+    }
+  };
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
     if (q.length > 2) {
@@ -440,15 +562,23 @@ export default function App() {
     }
   };
 
-  const sendMessage = (content: string) => {
-    if (socketRef.current && user && content.trim()) {
+  const sendMessage = (content: string, mediaUrl?: string, mediaType?: string) => {
+    if (socketRef.current && user && (content.trim() || mediaUrl)) {
       socketRef.current.send(JSON.stringify({
         type: 'chat',
         senderId: user.id,
         senderName: user.name,
         content,
-        roomId: activeRoom
+        roomId: activeRoom,
+        mediaUrl,
+        mediaType
       }));
+      // Force scroll to bottom when sending
+      setTimeout(() => {
+        if (virtuosoRef.current) {
+          virtuosoRef.current.scrollToIndex({ index: 'last', align: 'end', behavior: 'smooth' });
+        }
+      }, 100);
     }
   };
 
@@ -513,26 +643,33 @@ export default function App() {
   };
 
   const renderDashboard = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+    <div className="min-h-screen bg-white dark:bg-[#0a0502] text-gray-900 dark:text-gray-200 p-4 md:p-12 transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-12">
+        <header className="flex justify-between items-center mb-8 md:mb-12">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 cursor-pointer" onClick={() => setView('home')}><Logo /></div>
+            <div className="w-10 h-10 md:w-12 md:h-12 cursor-pointer" onClick={() => setView('home')}><Logo /></div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
-              <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
+              <p className="text-gray-500 text-xs md:text-sm">Connected to {user?.email || 'Unified System'}</p>
             </div>
           </div>
           <div className="flex gap-4">
             <button 
-              onClick={() => setView('messenger')}
-              className="p-2 rounded-lg bg-amber-500 text-black hover:bg-amber-400 transition-colors"
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
-              <MessageCircle size={20} />
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button 
+              onClick={() => setView('messenger')}
+              className="p-2 rounded-lg bg-amber-500 text-black hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20"
+            >
+              <MessageSquare size={20} />
             </button>
             <button 
               onClick={handleLogout}
-              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+              className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-rose-500 transition-colors text-sm font-medium"
             >
               Sign Out
             </button>
@@ -542,41 +679,41 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Feed */}
           <div className="lg:col-span-2 space-y-8">
-            <div className="card-gold p-8 rounded-3xl">
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+            <div className="p-8 rounded-3xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-sm">
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-900 dark:text-white">
                 <Sparkles className="text-amber-500" size={20} /> Freedomwall Highlights
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {freedomPosts.slice(0, 4).map((p) => (
-                  <div key={p.id} className="rounded-2xl overflow-hidden bg-white/5 border border-white/10">
-                    {p.image_url && <img src={p.image_url} alt="" className="w-full h-32 object-cover" />}
-                    <div className="p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-amber-400">{p.alias}</span>
-                        <span className="text-[10px] text-gray-500">{p.campus}</span>
+                {freedomPosts.slice(0, 1).map((p) => (
+                  <div key={p.id} className="rounded-2xl overflow-hidden bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10 md:col-span-2 shadow-sm">
+                    {p.image_url && <img src={p.image_url} alt="" className="w-full h-48 object-cover" />}
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-bold text-amber-500">{p.alias}</span>
+                        <span className="text-xs text-gray-500">{p.campus} • {new Date(p.timestamp).toLocaleDateString()}</span>
                       </div>
-                      <div className="mt-2 text-sm text-gray-200 line-clamp-3">{p.content}</div>
+                      <div className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed italic">"{p.content}"</div>
                     </div>
                   </div>
                 ))}
                 {freedomPosts.length === 0 && (
-                  <div className="text-sm text-gray-500">No posts yet. Be the first to share.</div>
+                  <div className="text-sm text-gray-500 italic">No posts yet. Be the first to share.</div>
                 )}
               </div>
               <div className="mt-6 flex justify-end">
-                <button onClick={() => setView('freedomwall')} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors">
+                <button onClick={() => setView('freedomwall')} className="px-6 py-2 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20">
                   Open Freedomwall
                 </button>
               </div>
             </div>
-            <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-              <h3 className="font-bold mb-4 flex items-center gap-2"><Globe size={18} className="text-amber-500" /> Campus Board</h3>
+            <div className="p-6 rounded-3xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-sm">
+              <h3 className="font-bold mb-4 flex items-center gap-2 text-gray-900 dark:text-white"><Globe size={18} className="text-amber-500" /> Campus Board</h3>
               <div className="flex flex-wrap gap-2">
                 {CAMPUSES.map((c) => (
                   <button
                     key={c.slug}
-                    onClick={() => { setView('freedomwall'); }}
-                    className="px-3 py-1 rounded-full bg-white/10 text-xs text-gray-300 hover:bg-white/20"
+                    onClick={() => { setSelectedCampus(c); setView('explorer'); }}
+                    className="px-3 py-1 rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300 hover:bg-amber-500 hover:text-black transition-colors"
                   >
                     {c.name}
                   </button>
@@ -611,7 +748,7 @@ export default function App() {
                 {stickyNotes.length === 0 ? (
                   <p className="text-sm text-gray-500">No notes yet. Use + to create a sticky note.</p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {stickyNotes.map(n => (
                       <div key={n.id} className={`p-3 rounded-2xl border ${n.color}`}>
                         <div className="flex justify-between items-center mb-2">
@@ -717,6 +854,7 @@ export default function App() {
                               setGroups((prev) => [res.group, ...prev]);
                               setNewGroup({ name: '', description: '', campus: '', logoPreview: '' });
                               setDashboardCreateOpen(false);
+                              joinGroup(res.group);
                             }
                           } finally {
                             setDashboardCreating(false);
@@ -802,6 +940,13 @@ export default function App() {
           <span className="hidden sm:inline">ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <button 
+            onClick={() => setDarkMode(!darkMode)}
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors"
+            title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button onClick={() => setView('explorer')} className="text-gray-400 hover:text-white transition-colors">Campuses</button>
           <button onClick={() => setView('about')} className="text-gray-400 hover:text-white transition-colors">About</button>
           <button 
@@ -1056,12 +1201,12 @@ export default function App() {
   );
 
   const renderExplorer = () => (
-    <div className="min-h-screen bg-[#0a0502] p-6 md:p-12">
+    <div className="min-h-screen bg-[#0a0502] p-4 md:p-12">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-12">
+        <header className="flex justify-between items-center mb-8 md:mb-12">
           <div>
-            <h2 className="text-3xl font-bold text-metallic-gold mb-2">Campus Explorer</h2>
-            <p className="text-gray-400">Discover the diverse branches of the MSU System.</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-metallic-gold mb-2">Campus Explorer</h2>
+            <p className="text-sm text-gray-400">Discover the diverse branches of the MSU System.</p>
           </div>
           <button 
             onClick={() => setView('home')}
@@ -1161,6 +1306,7 @@ export default function App() {
                   if (res.success) {
                     setGroups((prev) => [res.group, ...prev]);
                     setNewGroup({ name: '', description: '', campus: '', logoPreview: '' });
+                    joinGroup(res.group);
                   }
                 }}
                 className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
@@ -1179,7 +1325,7 @@ export default function App() {
           </div>
           {loadingGroups && <div className="text-sm text-gray-500">Loading groups...</div>}
           {!loadingGroups && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto scrollbar-hide pr-2">
               {groups
                 .filter(g => !selectedCampus || g.campus === selectedCampus.name)
                 .map(group => (
@@ -1201,13 +1347,10 @@ export default function App() {
                         View
                       </button>
                       <button 
-                        onClick={() => {
-                          setActiveRoom(group.name.toLowerCase().replace(/\s+/g, '-'));
-                          setView('messenger');
-                        }}
-                        className="text-amber-500 hover:text-amber-400 text-xs"
+                        onClick={() => joinGroup(group)}
+                        className="text-amber-500 hover:text-amber-400 text-xs font-bold"
                       >
-                        Join
+                        {joinedGroups.some(g => g.id === group.id) ? 'Open' : 'Join'}
                       </button>
                     </div>
                   </div>
@@ -1245,23 +1388,29 @@ export default function App() {
                   <p className="text-amber-400 flex items-center gap-1"><MapPin size={16} /> {selectedCampus.location}</p>
                 </div>
               </div>
-              <div className="p-8">
-                <p className="text-gray-300 text-lg leading-relaxed mb-8">
-                  {selectedCampus.description}
-                </p>
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Student Body</p>
-                    <p className="text-2xl font-bold text-white">{selectedCampus.stats.students}</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Academic Programs</p>
-                    <p className="text-2xl font-bold text-white">{selectedCampus.stats.courses}</p>
+              <div className="p-8 max-h-[80vh] overflow-y-auto scrollbar-hide">
+                <div className="mb-8">
+                  <p className="text-gray-300 text-lg leading-relaxed mb-4">
+                    {selectedCampus.description}
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Student Body</p>
+                      <p className="text-2xl font-bold text-white">{selectedCampus.stats.students}</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Academic Programs</p>
+                      <p className="text-2xl font-bold text-white">{selectedCampus.stats.courses}</p>
+                    </div>
                   </div>
                 </div>
-                <button className="w-full bg-amber-500 text-black py-4 rounded-xl font-bold hover:bg-amber-400 transition-colors">
-                  Visit Campus Portal
-                </button>
+
+                <div className="h-px w-full bg-white/10 mb-8" />
+                
+                <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
+                  <MessageSquare className="text-amber-500" size={20} /> Campus Newsfeed
+                </h4>
+                <CampusNewsfeed campus={selectedCampus} />
               </div>
             </motion.div>
           </div>
@@ -1298,13 +1447,12 @@ export default function App() {
                   <button onClick={() => setSelectedGroup(null)} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">Close</button>
                   <button
                     onClick={() => {
-                      setActiveRoom(selectedGroup.name.toLowerCase().replace(/\s+/g, '-'));
+                      joinGroup(selectedGroup);
                       setSelectedGroup(null);
-                      setView('messenger');
                     }}
                     className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
                   >
-                    Join Chat
+                    {joinedGroups.some(g => g.id === selectedGroup.id) ? 'Open Chat' : 'Join Chat'}
                   </button>
                 </div>
               </div>
@@ -1314,6 +1462,142 @@ export default function App() {
       </AnimatePresence>
     </div>
   );
+
+  const CampusNewsfeed = ({ campus }: { campus: Campus }) => {
+    const [posts, setPosts] = useState<Message[]>([]);
+    const [text, setText] = useState('');
+    const [media, setMedia] = useState<{ url: string; type: string } | null>(null);
+    const [loading, setLoading] = useState(false);
+    const room = `newsfeed-${campus.slug}`;
+
+    const fetchPosts = () => {
+      fetch(`/api/messages/${room}`).then(r => r.json()).then(setPosts);
+    };
+
+    useEffect(() => {
+      fetchPosts();
+      // Poll for new posts
+      const interval = setInterval(fetchPosts, 5000);
+      return () => clearInterval(interval);
+    }, [room]);
+
+    const handlePost = async () => {
+      if (!user || (!text.trim() && !media)) return;
+      setLoading(true);
+      try {
+        // We use the socket logic or direct API. Since we want it to be like a feed, 
+        // we can just send a message to this specific room.
+        if (socketRef.current) {
+          socketRef.current.send(JSON.stringify({
+            type: 'chat',
+            senderId: user.id,
+            senderName: user.name,
+            content: text.trim(),
+            roomId: room,
+            mediaUrl: media?.url,
+            mediaType: media?.type
+          }));
+          setText('');
+          setMedia(null);
+          // Optimistic update or wait for poll
+          setTimeout(fetchPosts, 500);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-sm">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`What's happening in ${campus.name}?`}
+            className="w-full bg-transparent text-sm text-gray-900 dark:text-white focus:outline-none resize-none mb-3"
+            rows={3}
+          />
+          {media && (
+            <div className="relative mb-3 rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 max-w-xs">
+              {media.type.startsWith('video') ? (
+                <video src={media.url} controls className="w-full" />
+              ) : (
+                <img src={media.url} alt="" className="w-full" />
+              )}
+              <button 
+                onClick={() => setMedia(null)}
+                className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-white/5">
+            <div className="flex gap-2">
+              <label className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-400 cursor-pointer transition-colors">
+                <Plus size={18} />
+                <input 
+                  type="file" 
+                  accept="image/*,video/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                      const res = await fetch('/api/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ dataUrl: reader.result as string })
+                      }).then(r => r.json());
+                      if (res.success) {
+                        setMedia({ url: res.url, type: res.mimeType });
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            </div>
+            <button 
+              onClick={handlePost}
+              disabled={loading || (!text.trim() && !media)}
+              className="px-4 py-1.5 rounded-lg bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 max-h-[400px] overflow-y-auto scrollbar-hide pr-2">
+          {posts.slice().reverse().map((post, i) => (
+            <div key={i} className="p-4 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/5 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-xs">
+                  {post.sender_name[0]}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-gray-900 dark:text-white">{post.sender_name}</div>
+                  <div className="text-[10px] text-gray-500">{new Date(post.timestamp).toLocaleString()}</div>
+                </div>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 whitespace-pre-wrap">{post.content}</p>
+              {post.media_url && (
+                <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 max-w-md">
+                  {post.media_type?.startsWith('video') ? (
+                    <video src={post.media_url} controls className="w-full" />
+                  ) : (
+                    <img src={post.media_url} alt="" className="w-full" />
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          {posts.length === 0 && <div className="text-center py-8 text-gray-500 text-sm">No posts yet. Be the first to share!</div>}
+        </div>
+      </div>
+    );
+  };
 
   const renderAbout = () => (
     <div className="min-h-screen bg-[#0a0502] text-gray-200">
@@ -1387,15 +1671,15 @@ export default function App() {
   );
 
   const renderFeedbacks = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-4 md:p-12">
       <div className="max-w-3xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Feedbacks</h2>
+        <header className="flex justify-between items-center mb-6 md:mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-metallic-gold">Feedbacks</h2>
           <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
-        <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/20 to-transparent border border-amber-500/20">
-          <h3 className="font-bold mb-2 flex items-center gap-2"><Info size={16} /> Share your thoughts</h3>
-          <p className="text-xs text-gray-400 mb-4">We value your suggestions and comments.</p>
+        <div className="p-4 md:p-6 rounded-3xl bg-gradient-to-br from-amber-500/20 to-transparent border border-amber-500/20">
+          <h3 className="font-bold mb-2 flex items-center gap-2 text-sm md:text-base"><Info size={16} /> Share your thoughts</h3>
+          <p className="text-[10px] md:text-xs text-gray-400 mb-4">We value your suggestions and comments.</p>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -1445,19 +1729,19 @@ export default function App() {
   );
 
   const renderNewsfeed = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-4 md:p-12">
       <div className="max-w-4xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Threads</h2>
+        <header className="flex justify-between items-center mb-6 md:mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-metallic-gold">Threads</h2>
           <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="space-y-6">
-          <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-            <h4 className="font-bold mb-4 flex items-center gap-2"><MessageSquare size={18} className="text-amber-500" /> Announcements</h4>
+          <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10">
+            <h4 className="font-bold mb-4 flex items-center gap-2 text-sm md:text-base"><MessageSquare size={18} className="text-amber-500" /> Announcements</h4>
             <Feed room="announcements" />
           </div>
-          <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-            <h4 className="font-bold mb-4 flex items-center gap-2"><MessageSquare size={18} className="text-amber-500" /> Global</h4>
+          <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10">
+            <h4 className="font-bold mb-4 flex items-center gap-2 text-sm md:text-base"><MessageSquare size={18} className="text-amber-500" /> Global</h4>
             <Feed room="global" />
           </div>
         </div>
@@ -1533,15 +1817,15 @@ export default function App() {
       }
     };
     return (
-      <form className="p-8 rounded-3xl bg-white/5 border border-white/10" onSubmit={save}>
-        <div className="h-24 rounded-2xl bg-white/10 mb-6" style={{ backgroundImage: form.cover_photo ? `url(${form.cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <form className="p-4 md:p-8 rounded-3xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-sm" onSubmit={save}>
+        <div className="h-20 md:h-24 rounded-2xl bg-gray-200 dark:bg-white/10 mb-6" style={{ backgroundImage: form.cover_photo ? `url(${form.cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }} />
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold overflow-hidden">
+          <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold overflow-hidden text-lg md:text-xl">
             {form.avatar ? <img src={form.avatar} alt="" className="w-full h-full object-cover" /> : (form.name || 'U')[0]}
           </div>
           <div>
-            <div className="text-xl font-bold text-white">{form.name || 'MSUan'}</div>
-            <div className="text-sm text-gray-500">{user?.email || 'Not connected'}</div>
+            <div className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">{form.name || 'MSUan'}</div>
+            <div className="text-xs md:text-sm text-gray-500">{user?.email || 'Not connected'}</div>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1555,10 +1839,10 @@ export default function App() {
           <Input label="Cover Photo URL" value={form.cover_photo} onChange={(v) => setForm({ ...form, cover_photo: v })} />
           <Textarea label="Bio / Intro" value={form.bio} onChange={(v) => setForm({ ...form, bio: v })} />
         </div>
-        <div className="mt-6 flex items-center gap-3">
-          <button type="submit" disabled={saving} className={`px-4 py-2 rounded-lg bg-amber-500 text-black font-bold transition-colors ${saving ? 'opacity-60 cursor-not-allowed' : 'hover:bg-amber-400'}`}>{saving ? 'Saving…' : 'Save Changes'}</button>
-          <button onClick={() => setView('messenger')} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">Open Messenger</button>
-          {savedAt && <span className="text-xs text-emerald-400">Saved</span>}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button type="submit" disabled={saving} className={`px-6 py-2 rounded-xl bg-amber-500 text-black font-bold transition-colors shadow-lg shadow-amber-500/20 ${saving ? 'opacity-60 cursor-not-allowed' : 'hover:bg-amber-400'}`}>{saving ? 'Saving…' : 'Save Changes'}</button>
+          <button onClick={() => setView('messenger')} className="px-6 py-2 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">Open Messenger</button>
+          {savedAt && <span className="text-xs text-emerald-500">Saved</span>}
         </div>
       </form>
     );
@@ -1567,54 +1851,54 @@ export default function App() {
   const Input = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <div>
       <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">{label}</div>
-      <input value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50" />
+      <input value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-amber-500/50 shadow-sm" />
     </div>
   );
   const Textarea = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <div className="md:col-span-2">
       <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">{label}</div>
-      <textarea value={value ?? ''} onChange={(e) => onChange(e.target.value)} rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50" />
+      <textarea value={value ?? ''} onChange={(e) => onChange(e.target.value)} rows={3} className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-amber-500/50 shadow-sm" />
     </div>
   );
   const renderProfile = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+    <div className="min-h-screen bg-white dark:bg-[#0a0502] text-gray-900 dark:text-gray-200 p-4 md:p-12 transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
         <header className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-metallic-gold">Profile</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+          <h2 className="text-2xl md:text-3xl font-bold text-metallic-gold">Profile</h2>
+          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-gray-900 dark:hover:text-white"><X /></button>
         </header>
-        <div className="rounded-3xl overflow-hidden border border-white/10 bg-white/5">
-          <div className="h-40 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative"
+        <div className="rounded-3xl overflow-hidden border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 shadow-sm">
+          <div className="h-32 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative"
                style={{ backgroundImage: user?.cover_photo ? `url(${(user as any).cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-            <div className="absolute -bottom-10 left-6">
-              <div className="w-24 h-24 rounded-full ring-4 ring-[#0a0502] overflow-hidden bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
+            <div className="absolute -bottom-8 md:-bottom-10 left-4 md:left-6">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full ring-4 ring-white dark:ring-[#0a0502] overflow-hidden bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-xl md:text-2xl shadow-xl">
                 {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user?.name || 'U')[0]}
               </div>
             </div>
           </div>
-          <div className="px-6 pt-12 pb-6">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div className="px-4 md:px-6 pt-10 md:pt-12 pb-6">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
               <div>
-                <div className="text-2xl font-bold text-white">{user?.name || 'MSUan'}</div>
-                <div className="text-sm text-gray-500">{user?.email || 'Not connected'}</div>
-                {user?.bio && <div className="mt-2 text-sm text-gray-300">{(user as any).bio}</div>}
+                <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{user?.name || 'MSUan'}</div>
+                <div className="text-xs md:text-sm text-gray-500">{user?.email || 'Not connected'}</div>
+                {user?.bio && <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">{(user as any).bio}</div>}
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4 md:gap-6">
                 <div className="text-center">
-                  <div className="text-lg font-bold text-white">0</div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Posts</div>
+                  <div className="text-base md:text-lg font-bold text-gray-900 dark:text-white">0</div>
+                  <div className="text-[8px] md:text-[10px] text-gray-500 uppercase tracking-wider">Posts</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-white">0</div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Followers</div>
+                  <div className="text-base md:text-lg font-bold text-gray-900 dark:text-white">0</div>
+                  <div className="text-[8px] md:text-[10px] text-gray-500 uppercase tracking-wider">Followers</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-white">0</div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Following</div>
+                  <div className="text-base md:text-lg font-bold text-gray-900 dark:text-white">0</div>
+                  <div className="text-[8px] md:text-[10px] text-gray-500 uppercase tracking-wider">Following</div>
                 </div>
                 <button
                   onClick={() => setProfileEditing(v => !v)}
-                  className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-gray-200 hover:bg-white/20 transition-colors text-sm font-medium"
+                  className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors text-xs md:text-sm font-medium"
                 >
                   {profileEditing ? 'Close Editor' : 'Edit Profile'}
                 </button>
@@ -1640,15 +1924,15 @@ export default function App() {
   );
 
   const renderFreedomwall = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+    <div className="min-h-screen bg-white dark:bg-[#0a0502] text-gray-900 dark:text-gray-200 p-4 md:p-12 transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Freedomwall</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+        <header className="flex justify-between items-center mb-6 md:mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-metallic-gold">Freedomwall</h2>
+          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-gray-900 dark:hover:text-white"><X /></button>
         </header>
-        <div className="card-gold p-6 rounded-3xl mb-8">
+        <div className="card-gold p-6 rounded-3xl mb-8 shadow-lg">
           <div className="flex items-center gap-3 mb-3">
-            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer">
+            <label className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 cursor-pointer transition-colors">
               Upload picture
               <input
                 type="file"
@@ -1663,22 +1947,22 @@ export default function App() {
                 className="hidden"
               />
             </label>
-            {freedomImagePreview && <span className="text-xs text-amber-400">Image attached</span>}
+            {freedomImagePreview && <span className="text-xs text-amber-500 font-medium">Image attached</span>}
           </div>
           <textarea
             value={freedomText}
             onChange={(e) => setFreedomText(e.target.value)}
             placeholder="Post anonymously to the Freedomwall..."
             rows={3}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-amber-500/50 transition-colors"
           />
           {freedomImagePreview && (
-            <div className="mt-3 rounded-2xl overflow-hidden border border-white/10">
+            <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-sm">
               <img src={freedomImagePreview} alt="" className="w-full h-48 object-cover" />
             </div>
           )}
           <div className="mt-4 flex justify-between items-center">
-            <div className="text-xs text-gray-500">Posting as a unique alias</div>
+            <div className="text-xs text-gray-500 italic">Posting as a unique alias</div>
             <button
               onClick={async () => {
                 if (!user || !freedomText.trim()) return;
@@ -1702,7 +1986,7 @@ export default function App() {
                   setFreedomPosts((prev) => [res.item, ...prev]);
                 }
               }}
-              className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
+              className="px-6 py-2 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20"
             >
               Post
             </button>
@@ -1710,12 +1994,12 @@ export default function App() {
         </div>
         <div className="space-y-4">
           {freedomPosts.map((p) => (
-            <div key={p.id} className="rounded-3xl overflow-hidden bg-white/5 border border-white/10">
+            <div key={p.id} className="rounded-3xl overflow-hidden bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-sm">
               {p.image_url && <img src={p.image_url} alt="" className="w-full max-h-72 object-cover" />}
-              <div className="p-4">
-                <div className="flex justify-between items-start">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-3">
                   <div>
-                    <div className="text-sm font-semibold">{p.alias}</div>
+                    <div className="text-sm font-bold text-amber-500">{p.alias}</div>
                     <div className="text-[10px] text-gray-500">{p.campus} • {new Date(p.timestamp).toLocaleString()}</div>
                   </div>
                   <div className="flex gap-3 text-xs">
@@ -1729,45 +2013,31 @@ export default function App() {
                           if (res.success) setFreedomPosts((prev) => prev.map(x => x.id === p.id ? res.item : x));
                         });
                       }}
-                      className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                      className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
                     >
                       Like {p.likes}
                     </button>
-                    <button
-                      onClick={() => {
-                        fetch(`/api/freedomwall/${p.id}/react`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'report' })
-                        }).then(r => r.json()).then(res => {
-                          if (res.success) setFreedomPosts((prev) => prev.map(x => x.id === p.id ? res.item : x));
-                        });
-                      }}
-                      className="px-3 py-1 rounded-full bg-white/10 text-gray-400 hover:bg-white/20"
-                    >
-                      Report {p.reports}
-                    </button>
                   </div>
                 </div>
-                <div className="mt-3 text-sm text-gray-200">{p.content}</div>
+                <p className="text-gray-800 dark:text-gray-200 leading-relaxed">{p.content}</p>
               </div>
             </div>
           ))}
-          {freedomPosts.length === 0 && <div className="text-sm text-gray-500">No posts yet.</div>}
+          {freedomPosts.length === 0 && <div className="text-center py-12 text-gray-500 italic">No posts yet. Be the first to share!</div>}
         </div>
       </div>
     </div>
   );
   const renderMessenger = () => (
-    <div className="min-h-screen bg-[#0a0502] flex flex-col md:flex-row">
+    <div className="h-[100dvh] bg-white dark:bg-[#0a0502] flex overflow-hidden relative transition-colors duration-300">
       {/* Sidebar */}
-      <div className="w-full md:w-80 border-r border-white/5 flex flex-col">
-        <div className="p-6 border-b border-white/5 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">Messenger</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+      <div className={`${!isMobileChatOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-gray-200 dark:border-white/5 flex-col h-full bg-white dark:bg-[#0a0502] z-20`}>
+        <div className="p-4 md:p-6 border-b border-gray-200 dark:border-white/5 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Messenger</h2>
+          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-gray-900 dark:hover:text-white"><X /></button>
         </div>
         
-        <div className="p-4">
+        <div className="p-4 border-b border-gray-200 dark:border-white/5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
             <input 
@@ -1776,12 +2046,12 @@ export default function App() {
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               aria-label="Search users"
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/30"
+              className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-amber-500/50"
             />
           </div>
           
           {searchResults.length > 0 && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-2 max-h-60 overflow-y-auto scrollbar-hide">
               {searchResults.map(u => (
                 <button 
                   key={u.id}
@@ -1789,14 +2059,20 @@ export default function App() {
                     setActiveRoom(`dm-${Math.min(user!.id, u.id)}-${Math.max(user!.id, u.id)}`);
                     setSearchResults([]);
                     setSearchQuery('');
+                    setIsMobileChatOpen(true);
                   }}
-                  className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30"
+                  className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors text-left"
                 >
-                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
-                    {u.name[0]}
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
+                      {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover rounded-full" /> : u.name[0]}
+                    </div>
+                    {activeUsers.includes(u.id) && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#0a0502] rounded-full" />
+                    )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">{u.name}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
                     <p className="text-xs text-gray-500">{u.campus}</p>
                   </div>
                 </button>
@@ -1805,59 +2081,131 @@ export default function App() {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Channels</div>
-          {['global', 'announcements', 'help-desk'].map(room => (
-            <button 
-              key={room}
-              onClick={() => setActiveRoom(room)}
-              aria-current={activeRoom === room ? 'page' : undefined}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === room ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30`}
-            >
-              <Hash size={18} />
-              <span className="text-sm font-bold capitalize">{room}</span>
-            </button>
-          ))}
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-6">
+          {recentDMs.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Recent Messages</div>
+              <div className="space-y-1">
+                {recentDMs.map(u => {
+                  const dmRoom = `dm-${Math.min(user!.id, u.id)}-${Math.max(user!.id, u.id)}`;
+                  return (
+                    <button 
+                      key={u.id}
+                      onClick={() => { setActiveRoom(dmRoom); setIsMobileChatOpen(true); }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === dmRoom ? 'bg-amber-500 text-black' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                    >
+                      <div className="relative">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${activeRoom === dmRoom ? 'bg-black/20 text-black' : 'bg-amber-500/20 text-amber-500'}`}>
+                          {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover rounded-full" /> : u.name[0]}
+                        </div>
+                        {activeUsers.includes(u.id) && (
+                          <div className={`absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 rounded-full ${activeRoom === dmRoom ? 'border-amber-500' : 'border-white dark:border-[#0a0502]'}`} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className={`text-sm font-bold truncate ${activeRoom === dmRoom ? 'text-black' : 'text-gray-900 dark:text-white'}`}>{u.name}</p>
+                        <p className={`text-[10px] truncate ${activeRoom === dmRoom ? 'text-black/60' : 'text-gray-500'}`}>{activeUsers.includes(u.id) ? 'Active now' : 'Offline'}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Channels</div>
+            {['global', 'announcements', 'help-desk'].map(room => (
+              <button 
+                key={room}
+                onClick={() => { setActiveRoom(room); setIsMobileChatOpen(true); }}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === room ? 'bg-amber-500 text-black' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+              >
+                <Hash size={18} />
+                <span className="text-sm font-bold capitalize">{room}</span>
+              </button>
+            ))}
+          </div>
           
-          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mt-6">Campuses</div>
-          {CAMPUSES.map(c => (
-            <button 
-              key={c.slug}
-              onClick={() => setActiveRoom(c.slug)}
-              aria-current={activeRoom === c.slug ? 'page' : undefined}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === c.slug ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30`}
-            >
-              <div className="w-5 h-5"><CampusLogo slug={c.slug} /></div>
-              <span className="text-sm font-bold">{c.name}</span>
-            </button>
-          ))}
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Groups</div>
+            <div className="space-y-1">
+              {joinedGroups.map(group => {
+                const gRoom = group.name.toLowerCase().replace(/\s+/g, '-');
+                return (
+                  <button 
+                    key={group.id}
+                    onClick={() => { setActiveRoom(gRoom); setIsMobileChatOpen(true); }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === gRoom ? 'bg-amber-500 text-black' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                  >
+                    <div className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${activeRoom === gRoom ? 'bg-black/20' : 'bg-amber-500/20'}`}>
+                      {group.logo_url ? <img src={group.logo_url} alt="" className="w-full h-full object-cover rounded" /> : group.name[0]}
+                    </div>
+                    <span className="text-sm font-bold truncate">{group.name}</span>
+                  </button>
+                );
+              })}
+              {joinedGroups.length === 0 && <div className="px-3 py-2 text-xs text-gray-600 italic">Join groups in Explorer</div>}
+            </div>
+          </div>
+          
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Campuses</div>
+            <div className="space-y-1">
+              {CAMPUSES.map(c => (
+                <button 
+                  key={c.slug}
+                  onClick={() => { setActiveRoom(c.slug); setIsMobileChatOpen(true); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === c.slug ? 'bg-amber-500 text-black' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                >
+                  <div className="w-5 h-5"><CampusLogo slug={c.slug} /></div>
+                  <span className="text-sm font-bold">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col h-screen">
-        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-black/20 backdrop-blur-md sticky top-0 z-10">
+      <div className={`${isMobileChatOpen ? 'flex' : 'hidden'} md:flex flex-1 flex-col h-full bg-white dark:bg-[#0a0502] z-10 transition-colors duration-300`}>
+        <div className="p-4 md:p-6 border-b border-gray-200 dark:border-white/5 flex justify-between items-center bg-white/80 dark:bg-black/20 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
+            <button 
+              onClick={() => setIsMobileChatOpen(false)}
+              className="md:hidden p-2 -ml-2 text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-sm md:text-base">
               {activeRoom.startsWith('dm') ? 'DM' : activeRoom[0].toUpperCase()}
             </div>
             <div>
-              <h3 className="font-bold text-white capitalize">{activeRoom.replace(/-/g, ' ')}</h3>
-              <p className="text-[10px] text-gray-500">
-                {activeRoom.startsWith('dm') ? 'Direct Message' : ['global', 'announcements', 'help-desk'].includes(activeRoom) ? 'Channel' : 'Campus'}
-              </p>
-              <p className="text-xs text-green-500 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Active now
-              </p>
+              <h3 className="font-bold text-gray-900 dark:text-white capitalize text-sm md:text-base">
+                {activeRoom.startsWith('dm-') ? (
+                  recentDMs.find(u => activeRoom.includes(u.id.toString()))?.name || activeRoom.replace(/-/g, ' ')
+                ) : activeRoom.replace(/-/g, ' ')}
+              </h3>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] text-gray-500 hidden sm:block">
+                  {activeRoom.startsWith('dm') ? 'Direct Message' : ['global', 'announcements', 'help-desk'].includes(activeRoom) ? 'Channel' : 'Campus'}
+                </p>
+                {activeRoom.startsWith('dm') && (
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-1.5 h-1.5 rounded-full ${activeUsers.some(uid => activeRoom.includes(uid.toString()) && uid !== user?.id) ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`} />
+                    <span className="text-[10px] text-gray-500">{activeUsers.some(uid => activeRoom.includes(uid.toString()) && uid !== user?.id) ? 'Active now' : 'Offline'}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="relative flex items-center gap-2 text-gray-500">
+            <button onClick={clearChat} className="p-2 hover:text-gray-900 dark:hover:text-white transition-colors" title="Clear chat for me"><Trash2 size={18} /></button>
             <button
               onClick={() => setMutedRooms(prev => prev.includes(activeRoom) ? prev.filter(r => r !== activeRoom) : [...prev, activeRoom])}
               title={mutedRooms.includes(activeRoom) ? 'Unmute room' : 'Mute room'}
               aria-label={mutedRooms.includes(activeRoom) ? 'Unmute room' : 'Mute room'}
-              className="p-2 rounded-lg hover:text-white hover:bg-white/5"
+              className="p-2 rounded-lg hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
             >
               {mutedRooms.includes(activeRoom) ? <BellOff size={20} /> : <Bell size={20} />}
             </button>
@@ -1867,29 +2215,29 @@ export default function App() {
                 title="Room settings"
                 aria-haspopup="menu"
                 aria-expanded={settingsOpen}
-                className="p-2 rounded-lg hover:text-white hover:bg-white/5"
+                className="p-2 rounded-lg hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
               >
                 <Settings size={20} />
               </button>
               {settingsOpen && (
-                <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl bg-black/90 border border-white/10 shadow-xl p-2 text-sm z-20">
+                <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-black/90 border border-gray-200 dark:border-white/10 shadow-xl p-2 text-sm z-20">
                   <button
                     onClick={() => setCompactBubbles(v => !v)}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5"
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-900 dark:text-white"
                     role="menuitem"
                   >
                     {compactBubbles ? 'Disable compact bubbles' : 'Enable compact bubbles'}
                   </button>
                   <button
                     onClick={() => setShowTimestamps(v => !v)}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5"
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-900 dark:text-white"
                     role="menuitem"
                   >
                     {showTimestamps ? 'Hide timestamps' : 'Show timestamps'}
                   </button>
                   <button
                     onClick={() => setMessages([])}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-rose-400"
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-rose-500"
                     role="menuitem"
                   >
                     Clear local messages
@@ -1900,9 +2248,9 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex-1 md:flex md:gap-6">
-          <div className="flex-1 min-w-0 flex flex-col">
-            <div className="flex-1 min-w-0 p-6">
+        <div className="flex-1 flex flex-col md:flex-row md:gap-6 overflow-hidden">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-w-0 p-4 md:p-6 overflow-hidden">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center text-gray-500">
                   <div>
@@ -1913,10 +2261,11 @@ export default function App() {
                 </div>
               ) : (
                 <Virtuoso
+                  ref={virtuosoRef}
                   style={{ height: '100%' }}
                   data={messages}
                   computeItemKey={(index, item) => String((item as any).id ?? `${(item as any).timestamp}-${index}`)}
-                  followOutput={(atBottom) => (atBottom ? 'smooth' : false)}
+                  followOutput="auto"
                   components={{
                     Scroller: forwardRef<HTMLDivElement, HTMLProps<HTMLDivElement>>((props, ref) => (
                       <div
@@ -1954,6 +2303,8 @@ export default function App() {
                     const sid = (m as any).sender_id ?? (m as any).senderId;
                     const sname = (m as any).sender_name ?? (m as any).senderName;
                     const ts = (m as any).timestamp;
+                    const mUrl = (m as any).media_url ?? (m as any).mediaUrl;
+                    const mType = (m as any).media_type ?? (m as any).mediaType;
                     const isMe = sid === user?.id;
                     let lastMyIndex = -1;
                     if (activeRoom.startsWith('dm-')) {
@@ -1963,21 +2314,78 @@ export default function App() {
                       }
                     }
                     const seenThis = isMe && otherLastRead && ts && activeRoom.startsWith('dm-') && index === lastMyIndex && new Date(ts) <= new Date(otherLastRead);
+                    
                     return (
-                      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6`}>
-                        <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-                          <span className={`text-[10px] font-bold text-gray-500 ${isMe ? 'mr-2 text-right' : 'ml-2 text-left'}`}>
-                            {sname}
-                          </span>
-                          <div className={`${compactBubbles ? 'px-3 py-1.5' : 'px-4 py-2'} rounded-2xl text-sm break-words whitespace-pre-wrap ${isMe ? 'bg-amber-500 text-black rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none'}`}>
-                            {(m as any).content}
+                      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6 px-4`}>
+                        <div className={`max-w-[85%] md:max-w-[70%] flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <button 
+                            onClick={() => {
+                              if (!isMe) {
+                                fetch(`/api/users/search?q=${sname}`)
+                                  .then(r => r.json())
+                                  .then(users => {
+                                    const found = users.find((u: any) => u.id === sid);
+                                    if (found) setViewingProfile(found);
+                                  });
+                              }
+                            }}
+                            className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-xs shrink-0 overflow-hidden"
+                          >
+                            {(m as any).sender_avatar ? <img src={(m as any).sender_avatar} alt="" className="w-full h-full object-cover" /> : sname[0]}
+                          </button>
+                          
+                          <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+                            <button 
+                              onClick={() => {
+                                if (!isMe) {
+                                  fetch(`/api/users/search?q=${sname}`)
+                                    .then(r => r.json())
+                                    .then(users => {
+                                      const found = users.find((u: any) => u.id === sid);
+                                      if (found) setViewingProfile(found);
+                                    });
+                                }
+                              }}
+                              className="text-[10px] font-bold text-gray-500 hover:text-white transition-colors"
+                            >
+                              {sname}
+                            </button>
+                            
+                            <div 
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                if (isMe) {
+                                  if (confirm('Delete message?')) {
+                                    const forEveryone = confirm('Delete for everyone?');
+                                    deleteMessage((m as any).id, forEveryone);
+                                  }
+                                } else {
+                                  if (confirm('Remove message for you?')) {
+                                    deleteMessage((m as any).id, false);
+                                  }
+                                }
+                              }}
+                              className={`group relative ${compactBubbles ? 'px-3 py-1.5' : 'px-4 py-2'} rounded-2xl text-sm break-words whitespace-pre-wrap ${isMe ? 'bg-amber-500 text-black rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none'}`}
+                            >
+                              {(m as any).content}
+                              {mUrl && (
+                                <div className="mt-2 rounded-lg overflow-hidden border border-white/10 max-w-xs">
+                                  {mType?.startsWith('video') ? (
+                                    <video src={mUrl} controls className="w-full" />
+                                  ) : (
+                                    <img src={mUrl} alt="" className="w-full object-cover" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {showTimestamps && (
+                              <span className="text-[8px] text-gray-600 px-2 flex items-center gap-2">
+                                {new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {seenThis && <span className="text-emerald-400">Seen</span>}
+                              </span>
+                            )}
                           </div>
-                          {showTimestamps && (
-                            <span className="text-[8px] text-gray-600 px-2">
-                              {new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              {seenThis && <span className="ml-2 text-emerald-400">Seen</span>}
-                            </span>
-                          )}
                         </div>
                       </div>
                     );
@@ -1989,7 +2397,7 @@ export default function App() {
                 />
               )}
             </div>
-            <div className="p-6 bg-black/20">
+            <div className="p-6 bg-gray-50 dark:bg-black/20">
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -2005,7 +2413,7 @@ export default function App() {
                   placeholder={activeRoom.startsWith('dm') ? 'Message user…' : `Message ${activeRoom.replace(/-/g, ' ')}…`}
                   aria-label="Type your message"
                   autoComplete="off"
-                  className="min-w-0 flex-1 w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-3 md:px-8 md:py-4 md:text-base text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/30"
+                  className="min-w-0 flex-1 w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl px-6 py-3 md:px-8 md:py-4 md:text-base text-gray-900 dark:text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/30 shadow-sm"
                 />
                 <button 
                   type="submit"
@@ -2018,14 +2426,14 @@ export default function App() {
               </form>
             </div>
           </div>
-          <aside className="hidden md:block w-80 border-l border-white/5 bg-black/10">
+          <aside className="hidden md:block w-80 border-l border-gray-200 dark:border-white/5 bg-gray-50 dark:bg-black/10">
             <div className="p-6">
-              <h4 className="font-bold mb-4">Notes</h4>
+              <h4 className="font-bold mb-4 text-gray-900 dark:text-white">Notes</h4>
               <textarea
                 value={notesByRoom[activeRoom] || ''}
                 onChange={(e) => setNotesByRoom(prev => ({ ...prev, [activeRoom]: e.target.value }))}
                 placeholder="Write your notes for this room…"
-                className="w-full h-64 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                className="w-full h-64 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-amber-500/50"
               />
             </div>
           </aside>
@@ -2167,6 +2575,74 @@ export default function App() {
                 <Info size={24} />
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {viewingProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setViewingProfile(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md bg-[#0a0502] border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="h-32 bg-gradient-to-r from-amber-500/20 to-amber-600/20 relative">
+                <button 
+                  onClick={() => setViewingProfile(null)}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="px-6 pb-8 -mt-12 text-center">
+                <div className="w-24 h-24 rounded-full bg-amber-500 border-4 border-[#0a0502] mx-auto flex items-center justify-center text-black text-3xl font-bold overflow-hidden shadow-xl">
+                  {viewingProfile.avatar ? <img src={viewingProfile.avatar} alt="" className="w-full h-full object-cover" /> : viewingProfile.name[0]}
+                </div>
+                <h3 className="text-2xl font-bold text-white mt-4">{viewingProfile.name}</h3>
+                <p className="text-amber-500 text-sm font-medium">{viewingProfile.campus || 'Global Campus'}</p>
+                <p className="text-gray-500 text-xs mt-1">{viewingProfile.email}</p>
+                
+                <div className="mt-8 grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => {
+                      setActiveRoom(`dm-${Math.min(user!.id, viewingProfile.id)}-${Math.max(user!.id, viewingProfile.id)}`);
+                      setViewingProfile(null);
+                      setView('messenger');
+                      setIsMobileChatOpen(true);
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
+                  >
+                    <MessageCircle size={18} />
+                    Message
+                  </button>
+                  <button className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 text-white font-bold hover:bg-white/10 transition-colors">
+                    <UserPlus size={18} />
+                    Follow
+                  </button>
+                </div>
+                
+                <div className="mt-8 pt-8 border-t border-white/5 text-left">
+                  <h4 className="text-sm font-bold text-white mb-4">Timeline Activity</h4>
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <div className="w-1 h-10 rounded-full bg-amber-500/30" />
+                      <div>
+                        <p className="text-xs text-gray-400">Joined OneMSU Community</p>
+                        <p className="text-[10px] text-gray-600">Recently</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

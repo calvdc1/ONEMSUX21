@@ -5,15 +5,44 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@layer base {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply antialiased overflow-x-hidden;
+    font-family: var(--font-sans);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
 :root {
+  --background: #f5f2ed;
+  --foreground: #0a0502;
+  --card-bg: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --accent: #b99740;
+}
+
+.dark {
   --background: #0a0502;
   --foreground: #f5f2ed;
+  --card-bg: #151619;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #f5d36b;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 @keyframes float {
@@ -33,6 +62,16 @@ body {
 }
 
 .hero-metallic {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60% 80% at 20% 10%, rgba(248,196,64,0.16), rgba(0,0,0,0) 60%),
+    radial-gradient(60% 80% at 80% 20%, rgba(142,18,18,0.20), rgba(0,0,0,0) 70%),
+    conic-gradient(from 210deg at 50% 50%, rgba(230,200,140,0.04), rgba(0,0,0,0) 25% 75%, rgba(230,200,140,0.05));
+  background-size: 160% 160%, 160% 160%, 220% 220%;
+  animation: metallic-shift 22s ease-in-out infinite;
+}
+
+.dark .hero-metallic {
   background-image:
     radial-gradient(60% 80% at 20% 10%, rgba(248,196,64,0.16), rgba(0,0,0,0) 60%),
     radial-gradient(60% 80% at 80% 20%, rgba(142,18,18,0.20), rgba(0,0,0,0) 70%),
@@ -49,18 +88,28 @@ body {
       #240407 82%,
       #120204 100%);
   background-size: 160% 160%, 160% 160%, 220% 220%, 240% 240%;
-  animation: metallic-shift 22s ease-in-out infinite;
 }
 
 .text-metallic-gold {
-  background: linear-gradient(180deg, #f9e7a3 0%, #f5d36b 35%, #d6b85a 50%, #f8e38c 65%, #b99740 100%);
+  background: linear-gradient(180deg, #b99740 0%, #d6b85a 35%, #f5d36b 50%, #d6b85a 65%, #b99740 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.dark .text-metallic-gold {
+  background: linear-gradient(180deg, #f9e7a3 0%, #f5d36b 35%, #d6b85a 50%, #f8e38c 65%, #b99740 100%);
+}
+
 .card-gold {
   position: relative;
+  background: white;
+  border: 1px solid rgba(185, 151, 64, 0.2);
+  color: #1a1a1a;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.dark .card-gold {
   background: linear-gradient(135deg, #0b0c0f, #1b1c20 55%, #2a2b31);
   border: 1px solid rgba(218,165,32,0.35);
   color: #f5f5f5;
@@ -89,5 +138,14 @@ body {
   background: rgba(255, 80, 20, 0.05);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 200, 150, 0.1);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
