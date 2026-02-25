@@ -239,6 +239,12 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 };
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('onemsu_splash_shown') !== 'true';
+    }
+    return true;
+  });
   const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks'>('home');
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -354,6 +360,16 @@ export default function App() {
     localStorage.setItem('onemsu_unread', JSON.stringify(unreadCounts));
   }, [unreadCounts]);
 
+  useEffect(() => {
+    if (showSplash) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+        localStorage.setItem('onemsu_splash_shown', 'true');
+      }, 3200);
+      return () => clearTimeout(timer);
+    }
+  }, [showSplash]);
+
   const [notesByRoom, setNotesByRoom] = useState<Record<string, string>>(() => {
     try {
       const key = typeof window !== 'undefined'
@@ -422,6 +438,21 @@ export default function App() {
       }, ...prev];
     });
   };
+
+  // Initialize AI Assistant with greeting on first open
+  useEffect(() => {
+    if (activeRoom === 'dm-ai-assistant' && messages.length === 0 && user) {
+      const greetingMsg = {
+        id: `ai-greeting-${Date.now()}`,
+        sender_id: 0,
+        sender_name: 'ONEMSU AI',
+        content: `Hello ${user.name}! 👋 I'm your ONEMSU AI Assistant. I'm here to help you with anything related to MSU, academic advice, campus life, or general knowledge. Feel free to ask me anything!`,
+        room_id: 'dm-ai-assistant',
+        timestamp: new Date().toISOString()
+      };
+      setMessages([greetingMsg as any]);
+    }
+  }, [activeRoom, user, messages.length]);
 
   const isUserOnline = (userId: number) => onlineUsers.includes(userId);
 
@@ -611,12 +642,12 @@ export default function App() {
       setFirstItemIndex(START_INDEX);
       setIsLoadingMore(true);
 
-      const url = `/api/messages/${activeRoom}?userId=${user?.id || ''}&limit=6`;
+      const url = `/api/messages/${activeRoom}?userId=${user?.id || ''}&limit=500`;
       fetch(url)
         .then(res => res.json())
         .then((data: Message[]) => {
           setMessages(data);
-          setHasMore(data.length >= 6);
+          setHasMore(data.length >= 500);
           // On room change, scroll to bottom
           requestAnimationFrame(() => {
             if (virtuosoRef.current) {
@@ -1163,28 +1194,30 @@ export default function App() {
       .reduce((sum, [_, count]) => (sum as number) + (count as number), 0);
 
     return (
-    <div className="h-full w-full bg-[#0a0502] p-4 md:p-8 lg:p-12 overflow-y-auto scrollbar-hide">
-      <div className="max-w-7xl mx-auto pb-20">
-        <header className="flex justify-between items-center mb-12">
-          <div className="flex items-center gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
-              <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
-            </div>
+    <div className="h-full w-full bg-[#0a0502] flex flex-col overflow-hidden">
+      {/* Header */}
+      <header className="flex justify-between items-center p-4 md:p-6 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
+            <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={handleLogout}
-              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-            >
-              Sign Out
-            </button>
-          </div>
-        </header>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+          >
+            Sign Out
+          </button>
+        </div>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Main Feed */}
-          <div className="lg:col-span-3 space-y-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden min-w-0">
+        {/* Left Main Content */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-6 border-r border-white/5">
+          <div className="max-w-4xl">
             <div className="card-gold p-8 rounded-3xl">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Sparkles className="text-amber-500" size={20} /> Confession Wall
@@ -1331,28 +1364,29 @@ export default function App() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right Side Panel */}
-          <div className="space-y-8">
-            <div className="card-gold p-6 rounded-3xl">
-              <h3 className="font-bold mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-3">
+        {/* Right Sidebar Panel */}
+        <div className="w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
+            <div className="card-gold p-4 rounded-2xl">
+              <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger'), unread: messengerUnread },
-                  { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
-                  { name: 'Grades', icon: <Sparkles size={14} /> },
-                  { name: 'Finance', icon: <ShieldCheck size={14} /> },
-                  { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
-                  { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
-                  { name: 'Updates', icon: <MessageSquare size={14} />, action: () => setView('newsfeed'), unread: updatesUnread },
-                  { name: 'Confession', icon: <Sparkles size={14} />, action: () => setView('confession') },
-                  { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
-                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
+                  { name: 'Messenger', icon: <MessageCircle size={12} />, action: () => setView('messenger'), unread: messengerUnread },
+                  { name: 'Library', icon: <BookOpen size={12} />, action: () => window.open('https://openlibrary.org', '_blank') },
+                  { name: 'Grades', icon: <Sparkles size={12} /> },
+                  { name: 'Finance', icon: <ShieldCheck size={12} /> },
+                  { name: 'Discord', icon: <ExternalLink size={12} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
+                  { name: 'Profile', icon: <Users size={12} />, action: () => setView('profile') },
+                  { name: 'Updates', icon: <MessageSquare size={12} />, action: () => setView('newsfeed'), unread: updatesUnread },
+                  { name: 'Confession', icon: <Sparkles size={12} />, action: () => setView('confession') },
+                  { name: 'Explorer', icon: <Globe size={12} />, action: () => setView('explorer') },
+                  { name: 'Feedbacks', icon: <Info size={12} />, action: () => setView('feedbacks') }
                 ].map(item => (
-                  <button 
-                    key={item.name} 
+                  <button
+                    key={item.name}
                     onClick={() => item.action ? item.action() : null}
-                    className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium hover:bg-amber-500 hover:text-black transition-all flex flex-col items-center gap-2 relative group"
+                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-medium hover:bg-amber-500 hover:text-black transition-all flex flex-col items-center gap-1 relative group"
                   >
                     {(item as any).unread > 0 && (
                       <motion.span
@@ -1376,38 +1410,21 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card-gold p-6 rounded-3xl">
-              <h3 className="font-bold mb-4 flex items-center gap-2"><Globe size={18} className="text-amber-500" /> Campus Information</h3>
-              <div className="space-y-3">
-                {CAMPUSES.map((c) => (
-                  <div key={c.slug} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-lg">
+            <div className="card-gold p-4 rounded-2xl">
+              <h3 className="font-bold mb-3 text-sm flex items-center gap-2"><Globe size={16} className="text-amber-500" /> Campuses</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
+                {CAMPUSES.slice(0, 5).map((c) => (
+                  <div key={c.slug} className="p-3 rounded-lg bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
+                    <div className="flex items-start gap-2">
+                      <div className="w-8 h-8 shrink-0 rounded-lg overflow-hidden">
                         <CampusLogo slug={c.slug} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors">{c.name}</h4>
-                          <button 
-                            onClick={() => setSelectedCampus(c)}
-                            className="text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 hover:bg-amber-500 hover:text-black transition-colors"
-                          >
-                            About
-                          </button>
+                      <div className="flex-1 min-w-0 text-xs">
+                        <div className="flex justify-between items-start gap-1">
+                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{c.name}</h4>
                         </div>
-                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 mb-2">
-                          <MapPin size={10} /> {c.location}
-                        </div>
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                          {c.description}
-                        </p>
-                        <div className="flex gap-3 mt-3 pt-3 border-t border-white/5">
-                           <div className="text-[10px] text-gray-500">
-                             <span className="text-amber-500 font-bold">{c.stats.students}</span> Students
-                           </div>
-                           <div className="text-[10px] text-gray-500">
-                             <span className="text-amber-500 font-bold">{c.stats.courses}</span> Programs
-                           </div>
+                        <div className="flex items-center gap-1 text-[9px] text-gray-500">
+                          <MapPin size={8} /> {c.location.split(',')[0]}
                         </div>
                       </div>
                     </div>
@@ -1416,9 +1433,9 @@ export default function App() {
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold flex items-center gap-2"><BookOpen size={18} className="text-amber-500" /> Notes</h4>
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-bold text-sm flex items-center gap-2"><BookOpen size={14} className="text-amber-500" /> Notes</h4>
                 <button
                   onClick={() => {
                     const palette = [
@@ -1432,28 +1449,28 @@ export default function App() {
                     const color = palette[Math.floor(Math.random() * palette.length)];
                     setStickyNotes(prev => [{ id, content: '', color, createdAt: new Date().toISOString() }, ...prev]);
                   }}
-                  className="p-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
+                  className="p-1 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
                   title="Add note"
                   aria-label="Add note"
                 >
-                  <Plus size={16} />
+                  <Plus size={14} />
                 </button>
               </div>
               {stickyNotes.length === 0 ? (
-                <p className="text-sm text-gray-500">No notes yet. Use + to create a sticky note.</p>
+                <p className="text-xs text-gray-500">Use + to create a note.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto scrollbar-hide">
-                  {stickyNotes.slice(0, 4).map(n => (
-                    <div key={n.id} className={`p-3 rounded-2xl border ${n.color} transition-all hover:scale-[1.02]`}>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
+                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto scrollbar-hide">
+                  {stickyNotes.slice(0, 2).map(n => (
+                    <div key={n.id} className={`p-2 rounded-lg border ${n.color} transition-all hover:scale-[1.02]`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[8px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
                         <button
                           className="text-xs text-white/60 hover:text-white transition-colors"
                           onClick={() => setStickyNotes(prev => prev.filter(x => x.id !== n.id))}
                           title="Delete note"
                           aria-label="Delete note"
                         >
-                          <X size={14} />
+                          <X size={12} />
                         </button>
                       </div>
                       <textarea
@@ -1462,8 +1479,8 @@ export default function App() {
                           const v = e.target.value;
                           setStickyNotes(prev => prev.map(x => x.id === n.id ? { ...x, content: v } : x));
                         }}
-                        placeholder="Write a note…"
-                        className="w-full h-28 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none resize-none"
+                        placeholder="Note…"
+                        className="w-full h-16 bg-transparent text-xs text-white placeholder-white/40 focus:outline-none resize-none"
                       />
                     </div>
                   ))}
@@ -1472,7 +1489,6 @@ export default function App() {
             </div>
 
             {/* Feedbacks moved to its own view via Quick Actions */}
-          </div>
         </div>
       </div>
     </div>
@@ -3633,6 +3649,46 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-full selection:bg-amber-500/30 selection:text-amber-200 overflow-auto scrollbar-hide fixed inset-0">
+      <AnimatePresence>
+        {showSplash && (
+          <motion.div
+            key="splash"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-[200] bg-[#0a0502] flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="w-32 h-32"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+              >
+                <Logo />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8, duration: 0.6 }}
+                className="text-center mt-8"
+              >
+                <h1 className="text-2xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="mt-4 text-xs text-gray-500"
+                >
+                  Loading...
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
         {view === 'home' && (
           <motion.div
