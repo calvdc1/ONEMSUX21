@@ -409,30 +409,40 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // Notification endpoints
-  app.get("/api/notifications/:userId", (req, res) => {
-    const userId = Number(req.params.userId);
-    const limit = Number(req.query.limit) || 50;
-
-    const notifications = db.prepare(`
-      SELECT * FROM notifications
-      WHERE user_id = ?
-      ORDER BY timestamp DESC
-      LIMIT ?
-    `).all(userId, limit);
-
-    res.json(notifications);
-  });
-
+  // Notification endpoints - MORE SPECIFIC ROUTES FIRST
   app.get("/api/notifications/:userId/unread-count", (req, res) => {
     const userId = Number(req.params.userId);
 
-    const result = db.prepare(`
-      SELECT COUNT(*) as count FROM notifications
-      WHERE user_id = ? AND is_read = 0
-    `).get(userId) as { count: number };
+    try {
+      const result = db.prepare(`
+        SELECT COUNT(*) as count FROM notifications
+        WHERE user_id = ? AND is_read = 0
+      `).get(userId) as { count: number };
 
-    res.json({ unreadCount: result.count });
+      res.json({ unreadCount: result?.count || 0 });
+    } catch (err) {
+      console.error("Error fetching unread count:", err);
+      res.json({ unreadCount: 0 });
+    }
+  });
+
+  app.get("/api/notifications/:userId", (req, res) => {
+    try {
+      const userId = Number(req.params.userId);
+      const limit = Number(req.query.limit) || 50;
+
+      const notifications = db.prepare(`
+        SELECT * FROM notifications
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `).all(userId, limit);
+
+      res.json(notifications || []);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      res.json([]);
+    }
   });
 
   app.post("/api/notifications/mark-read", (req, res) => {

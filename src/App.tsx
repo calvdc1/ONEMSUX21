@@ -1256,6 +1256,9 @@ export default function App() {
   };
 
   const renderDashboard = () => {
+    const totalUnreadCount = Object.entries(unreadCounts)
+      .reduce((sum, [_, count]) => (sum as number) + (count as number), 0);
+
     const messengerUnread = Object.entries(unreadCounts)
       .filter(([room]) => room.startsWith('dm-') || room.startsWith('group-') || ['global', 'help-desk'].includes(room))
       .reduce((sum, [_, count]) => (sum as number) + (count as number), 0);
