@@ -1,23 +1,13 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ONEMSU</title>
-    <link rel="icon" type="image/svg+xml"
-      href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="%23f9e7a3"/><stop offset="0.5" stop-color="%23f5d36b"/><stop offset="1" stop-color="%23b99740"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="none" stroke="url(%23g)" stroke-width="4"/><circle cx="50" cy="50" r="36" fill="%230a0502"/><circle cx="70" cy="30" r="5" fill="%23b99740"/><circle cx="30" cy="70" r="5" fill="%23b99740"/></svg>' />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#f8c440" />
+    <title>OneMSU</title>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
-        });
-      }
-    </script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
