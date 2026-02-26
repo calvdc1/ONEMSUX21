@@ -365,7 +365,7 @@ export default function App() {
       const timer = setTimeout(() => {
         setShowSplash(false);
         localStorage.setItem('onemsu_splash_shown', 'true');
-      }, 5000);
+      }, 8000);
       return () => clearTimeout(timer);
     }
   }, [showSplash]);
@@ -3664,17 +3664,17 @@ export default function App() {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-center"
             >
-              <h1 className="text-5xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8, duration: 0.6 }}
-                className="text-center mt-8"
+                className="text-center mt-6 sm:mt-8"
               >
                 <motion.div
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className="mt-4 text-xs text-gray-500"
+                  className="text-xs sm:text-sm text-gray-500"
                 >
                   Loading...
                 </motion.div>
