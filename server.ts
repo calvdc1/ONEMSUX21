@@ -6,7 +6,6 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import bcrypt from "bcrypt";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -215,16 +214,11 @@ if (!groupsCount.c) {
   stmt.run("Tawi-Tawi Oceanic Research Circle", "Fisheries and oceanography circle", "MSU Tawi-Tawi");
 }
 async function startServer() {
-  console.log("Starting server initialization...");
   const app = express();
   const server = createServer(app);
   const wss = new WebSocketServer({ server });
 
   app.use(express.json());
-  app.get("/api/test", (req, res) => {
-    console.log("Test route hit");
-    res.send("API is alive");
-  });
 
   // API Routes
   app.get("/api/feedbacks", (req, res) => {
@@ -370,38 +364,21 @@ async function startServer() {
       res.status(500).json({ success: false, message: "Failed to save file" });
     }
   });
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ success: false, message: "Email and password required" });
-    
-    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
+    const user = db.prepare("SELECT * FROM users WHERE email = ? AND password = ?").get(email, password);
     if (user) {
-      const match = await bcrypt.compare(password, user.password);
-      if (match) {
-        res.json({ success: true, user });
-      } else {
-        res.status(401).json({ success: false, message: "Invalid credentials" });
-      }
+      res.json({ success: true, user });
     } else {
       res.status(401).json({ success: false, message: "Invalid credentials" });
     }
   });
 
-  app.post("/api/auth/signup", async (req, res) => {
+  app.post("/api/auth/signup", (req, res) => {
     const { name, email, password, campus, code } = req.body;
-    if (!name || !email || !password || !campus) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email required" });
     }
-    
-    const emailRegex = /\S+@\S+\.\S+/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email format" });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
-    }
-
     // Check settings to see if code is required
     let requireCode = false;
     try {
@@ -418,10 +395,9 @@ async function startServer() {
       }
     }
     try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const info = db.prepare("INSERT INTO users (name, email, password, campus, is_verified, is_admin) VALUES (?, ?, ?, ?, 0, 0)").run(name, email, hashedPassword, campus);
+      const info = db.prepare("INSERT INTO users (name, email, password, campus, is_verified, is_admin) VALUES (?, ?, ?, ?, 0, 0)").run(name, email, password, campus);
       if (requireCode) db.prepare("DELETE FROM email_verifications WHERE email = ?").run(email);
-      const user = db.prepare("SELECT id, name, email, campus, avatar, is_verified, is_admin FROM users WHERE id = ?").get(info.lastInsertRowid);
+      const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
       res.json({ success: true, user });
     } catch (err) {
       res.status(400).json({ success: false, message: "Email already exists" });
@@ -791,24 +767,11 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    console.log("Setting up Vite middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-    app.get("*", async (req, res) => {
-      try {
-        const url = req.originalUrl;
-        let template = fs.readFileSync(path.resolve(__dirname, "index.html"), "utf-8");
-        template = await vite.transformIndexHtml(url, template);
-        res.status(200).set({ "Content-Type": "text/html" }).end(template);
-      } catch (e: any) {
-        vite.ssrFixStacktrace(e);
-        res.status(500).end(e.message);
-      }
-    });
-    console.log("Vite middleware and fallback ready");
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
     app.get("*", (req, res) => {
@@ -816,7 +779,7 @@ async function startServer() {
     });
   }
 
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3001;
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
