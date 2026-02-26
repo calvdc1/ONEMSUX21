@@ -1500,7 +1500,7 @@ export default function App() {
       {/* Navigation Header */}
       <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-50">
         <div className="flex items-center gap-3 font-bold text-xl cursor-pointer" onClick={() => setView('home')}>
-          <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-12 h-12 object-contain" />
+          <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-16 h-16 rounded-full object-cover" />
           <span className="hidden sm:inline tracking-tighter">ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium">
@@ -2249,7 +2249,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0502] text-gray-200">
       <nav className="p-6 flex justify-between items-center border-b border-white/5">
         <div className="flex items-center gap-3 font-bold text-xl cursor-pointer" onClick={() => setView('home')}>
-          <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-10 h-10 object-contain" />
+          <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-14 h-14 rounded-full object-cover" />
           <span>ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <button onClick={() => setView('home')} className="text-gray-400 hover:text-white transition-colors"><X /></button>
@@ -3662,7 +3662,7 @@ export default function App() {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-center"
             >
-              <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 mx-auto object-contain" />
+              <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 mx-auto rounded-full object-cover" />
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
