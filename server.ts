@@ -13,6 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+const OWNER_EMAIL = 'xandercamarin@gmail.com';
 
 let db = new Database("onemsu.db");
 try {
@@ -50,6 +51,22 @@ try {
     room_id TEXT,
     last_read TEXT,
     PRIMARY KEY (user_id, room_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS follows (
+    follower_id INTEGER,
+    followee_id INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (follower_id, followee_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS owner_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    site_name TEXT DEFAULT 'ONEMSU',
+    maintenance_mode INTEGER DEFAULT 0,
+    messenger_enabled INTEGER DEFAULT 1,
+    confession_enabled INTEGER DEFAULT 1,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS groups (
@@ -114,6 +131,20 @@ try {
         last_read TEXT,
         PRIMARY KEY (user_id, room_id)
       );
+      CREATE TABLE IF NOT EXISTS follows (
+        follower_id INTEGER,
+        followee_id INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (follower_id, followee_id)
+      );
+      CREATE TABLE IF NOT EXISTS owner_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        site_name TEXT DEFAULT 'ONEMSU',
+        maintenance_mode INTEGER DEFAULT 0,
+        messenger_enabled INTEGER DEFAULT 1,
+        confession_enabled INTEGER DEFAULT 1,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
       CREATE TABLE IF NOT EXISTS groups (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -156,6 +187,7 @@ try { db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT`); } catch {}
 try { db.exec(`ALTER TABLE messages ADD COLUMN attachment_type TEXT`); } catch {}
 try { db.exec(`ALTER TABLE messages ADD COLUMN edited_at TEXT`); } catch {}
 const groupsCount = db.prepare("SELECT COUNT(*) AS c FROM groups").get() as { c: number };
+db.prepare("INSERT OR IGNORE INTO owner_settings (id) VALUES (1)").run();
 if (!groupsCount.c) {
   const stmt = db.prepare("INSERT INTO groups (name, description, campus) VALUES (?, ?, ?)");
   stmt.run("MSU Main Debate Society", "Debate and public speaking club", "MSU Main");
@@ -326,7 +358,11 @@ User (${userName || "Student"}): ${message}`
       const info = db
         .prepare("INSERT INTO users (name, email, password, campus, student_id, program, year_level) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .run(name, email, password, campus || 'MSU Main', student_id, program, year_level);
-      const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
+      const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid) as any;
+      const owner = db.prepare('SELECT id FROM users WHERE email = ?').get(OWNER_EMAIL) as any;
+      if (owner && user && owner.id !== user.id) {
+        db.prepare('INSERT OR IGNORE INTO follows (follower_id, followee_id) VALUES (?, ?)').run(user.id, owner.id);
+      }
       res.json({ success: true, user });
     } catch (err) {
       res.status(400).json({ success: false, message: "Email already exists" });
@@ -428,6 +464,59 @@ User (${userName || "Student"}): ${message}`
     const query = req.query.q;
     const users = db.prepare("SELECT id, name, email, campus FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10").all(`%${query}%`, `%${query}%`);
     res.json(users);
+  });
+
+  app.get('/api/follows/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const viewer = Number(req.query.viewer || 0);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const followers = db.prepare('SELECT COUNT(*) as c FROM follows WHERE followee_id = ?').get(id) as any;
+    const following = db.prepare('SELECT COUNT(*) as c FROM follows WHERE follower_id = ?').get(id) as any;
+    const isFollowing = viewer
+      ? !!db.prepare('SELECT 1 FROM follows WHERE follower_id = ? AND followee_id = ?').get(viewer, id)
+      : false;
+    res.json({ success: true, followers: followers.c || 0, following: following.c || 0, isFollowing });
+  });
+
+  app.post('/api/follow', (req, res) => {
+    const { followerId, followeeId } = req.body || {};
+    if (!followerId || !followeeId) return res.status(400).json({ success: false, message: 'Missing ids' });
+    if (Number(followerId) === Number(followeeId)) return res.status(400).json({ success: false, message: 'Cannot follow self' });
+    db.prepare('INSERT OR IGNORE INTO follows (follower_id, followee_id) VALUES (?, ?)').run(followerId, followeeId);
+    res.json({ success: true });
+  });
+
+  app.post('/api/unfollow', (req, res) => {
+    const { followerId, followeeId } = req.body || {};
+    if (!followerId || !followeeId) return res.status(400).json({ success: false, message: 'Missing ids' });
+    db.prepare('DELETE FROM follows WHERE follower_id = ? AND followee_id = ?').run(followerId, followeeId);
+    res.json({ success: true });
+  });
+
+  app.get('/api/feed/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const rows = db.prepare(`
+      SELECT m.* FROM messages m
+      WHERE m.sender_id IN (SELECT followee_id FROM follows WHERE follower_id = ?)
+      ORDER BY m.timestamp DESC LIMIT 100
+    `).all(id);
+    res.json({ success: true, items: rows });
+  });
+
+  app.get('/api/owner/settings', (req, res) => {
+    const email = String(req.query.email || '');
+    if (email !== OWNER_EMAIL) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const settings = db.prepare('SELECT * FROM owner_settings WHERE id = 1').get();
+    res.json({ success: true, settings });
+  });
+
+  app.put('/api/owner/settings', (req, res) => {
+    const { email, site_name, maintenance_mode, messenger_enabled, confession_enabled } = req.body || {};
+    if (email !== OWNER_EMAIL) return res.status(403).json({ success: false, message: 'Forbidden' });
+    db.prepare('UPDATE owner_settings SET site_name = COALESCE(?, site_name), maintenance_mode = COALESCE(?, maintenance_mode), messenger_enabled = COALESCE(?, messenger_enabled), confession_enabled = COALESCE(?, confession_enabled), updated_at = ? WHERE id = 1').run(site_name, maintenance_mode, messenger_enabled, confession_enabled, new Date().toISOString());
+    const settings = db.prepare('SELECT * FROM owner_settings WHERE id = 1').get();
+    res.json({ success: true, settings });
   });
 
   // WebSocket Logic

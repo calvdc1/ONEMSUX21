@@ -227,7 +227,7 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 };
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'freedomwall' | 'feedbacks' | 'assistant'>('home');
+  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'freedomwall' | 'feedbacks' | 'assistant' | 'settings' | 'library' | 'lostfound' | 'groups' | 'confession'>('home');
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -288,6 +288,9 @@ export default function App() {
   const mediaRecorderRef = useRef<any>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [followStats, setFollowStats] = useState({ followers: 0, following: 0 });
+  const [followingFeed, setFollowingFeed] = useState<any[]>([]);
+  const [ownerSettings, setOwnerSettings] = useState<any>(null);
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string } | null>(null);
   const [newGroup, setNewGroup] = useState<{ name: string; description: string; campus: string; logoPreview: string | null }>({ name: '', description: '', campus: '', logoPreview: null });
   const [dashboardCreateOpen, setDashboardCreateOpen] = useState(false);
@@ -343,6 +346,65 @@ export default function App() {
     const timer = window.setTimeout(() => setShowOpeningSplash(false), 10000);
     return () => window.clearTimeout(timer);
   }, []);
+  const routeToView = (route: string) => {
+    const map: Record<string, any> = {
+      '/home': 'home',
+      '/messenger': 'messenger',
+      '/groups': 'groups',
+      '/profile': 'profile',
+      '/confession': 'confession',
+      '/library': 'library',
+      '/lost-found': 'lostfound',
+      '/settings': 'settings',
+      '/dashboard': 'dashboard',
+      '/assistant': 'assistant',
+      '/feedback': 'feedbacks',
+    };
+    return map[route] || 'home';
+  };
+
+  const viewToRoute = (v: string) => {
+    const map: Record<string, string> = {
+      home: '/home',
+      messenger: '/messenger',
+      groups: '/groups',
+      profile: '/profile',
+      confession: '/confession',
+      library: '/library',
+      lostfound: '/lost-found',
+      settings: '/settings',
+      dashboard: '/dashboard',
+      assistant: '/assistant',
+      feedbacks: '/feedback',
+    };
+    return map[v] || '/home';
+  };
+
+  const navigateTo = (nextView: any) => {
+    setView(nextView);
+    if (typeof window !== 'undefined') window.location.hash = viewToRoute(nextView);
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const applyRoute = () => {
+      const route = (window.location.hash || '#/home').replace('#', '');
+      const next = routeToView(route);
+      setView(next);
+    };
+    applyRoute();
+    window.addEventListener('hashchange', applyRoute);
+    return () => window.removeEventListener('hashchange', applyRoute);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const target = viewToRoute(view);
+    if ((window.location.hash || '#/home').replace('#', '') !== target) {
+      window.location.hash = target;
+    }
+  }, [view]);
+
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -381,8 +443,23 @@ export default function App() {
     }
   }, [view]);
   useEffect(() => {
-    if (isLoggedIn && view === 'home') setView('dashboard');
+    if (isLoggedIn && view === 'home') navigateTo('dashboard');
   }, [isLoggedIn, view]);
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/follows/${user.id}?viewer=${user.id}`).then(r => r.json()).then((res) => {
+      if (res.success) setFollowStats({ followers: res.followers || 0, following: res.following || 0 });
+    }).catch(() => {});
+    fetch(`/api/feed/${user.id}`).then(r => r.json()).then((res) => {
+      if (res.success) setFollowingFeed(res.items || []);
+    }).catch(() => {});
+    if (user.email === 'xandercamarin@gmail.com') {
+      fetch(`/api/owner/settings?email=${encodeURIComponent(user.email)}`).then(r => r.json()).then((res) => {
+        if (res.success) setOwnerSettings(res.settings);
+      }).catch(() => {});
+    }
+  }, [user?.id, user?.email]);
+
 
   useEffect(() => {
     if (isLoggedIn && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
@@ -730,7 +807,7 @@ export default function App() {
     await new Promise((resolve) => setTimeout(resolve, 2200));
     setIsLoggedIn(false);
     setUser(null);
-    setView('home');
+    navigateTo('home');
     localStorage.removeItem('onemsu_auth');
     localStorage.removeItem('onemsu_user');
     setOnlineUsers({});
@@ -833,7 +910,7 @@ export default function App() {
             <h2 className="text-4xl font-bold text-white flex items-center gap-3"><Bot className="text-amber-400" /> JARVIS AI</h2>
             <p className="text-gray-400 mt-2">Talk by text or voice. Choose if AI replies in text only or with voice.</p>
           </div>
-          <button onClick={() => setView('dashboard')} className="text-gray-400 hover:text-white"><X /></button>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-400 hover:text-white"><X /></button>
         </header>
 
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
@@ -908,7 +985,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto">
         <header className="flex justify-between items-center mb-12">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 cursor-pointer" onClick={() => setView('home')}><Logo /></div>
+            <div className="w-12 h-12 cursor-pointer" onClick={() => navigateTo('home')}><Logo /></div>
             <div>
               <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
               <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
@@ -916,7 +993,7 @@ export default function App() {
           </div>
           <div className="flex gap-4">
             <button 
-              onClick={() => setView('messenger')}
+              onClick={() => navigateTo('messenger')}
               className="p-2 rounded-lg bg-amber-500 text-black hover:bg-amber-400 transition-colors"
             >
               <MessageCircle size={20} />
@@ -955,7 +1032,7 @@ export default function App() {
                 )}
               </div>
               <div className="mt-6 flex justify-end">
-                <button onClick={() => setView('freedomwall')} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors">
+                <button onClick={() => navigateTo('confession')} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors">
                   Open Freedom Wall
                 </button>
               </div>
@@ -966,7 +1043,7 @@ export default function App() {
                 {CAMPUSES.map((c) => (
                   <button
                     key={c.slug}
-                    onClick={() => { setView('freedomwall'); }}
+                    onClick={() => { navigateTo('confession'); }}
                     className="px-3 py-1 rounded-full bg-white/10 text-xs text-gray-300 hover:bg-white/20"
                   >
                     {c.name}
@@ -1136,7 +1213,7 @@ export default function App() {
                       <button 
                         onClick={() => {
                           setActiveRoom(group.name.toLowerCase().replace(/\s+/g, '-'));
-                          setView('messenger');
+                          navigateTo('messenger');
                         }}
                         className="text-amber-500 hover:text-amber-400 text-xs"
                       >
@@ -1155,17 +1232,17 @@ export default function App() {
               <h3 className="font-bold mb-4">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger') },
+                  { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => navigateTo('messenger') },
                   { name: 'JARVIS AI', icon: <Bot size={14} />, action: () => setView('assistant') },
                   { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
                   { name: 'Grades', icon: <Sparkles size={14} /> },
                   { name: 'Finance', icon: <ShieldCheck size={14} /> },
                   { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
-                  { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
+                  { name: 'Profile', icon: <Users size={14} />, action: () => navigateTo('profile') },
                   { name: 'Threads', icon: <MessageSquare size={14} />, action: () => setView('newsfeed') },
-                  { name: 'Freedom Wall', icon: <Sparkles size={14} />, action: () => setView('freedomwall') },
-                  { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
-                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
+                  { name: 'Freedom Wall', icon: <Sparkles size={14} />, action: () => navigateTo('confession') },
+                  { name: 'Explorer', icon: <Globe size={14} />, action: () => navigateTo('groups') },
+                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => navigateTo('feedbacks') }
                 ].map(item => (
                   <button 
                     key={item.name} 
@@ -1195,10 +1272,10 @@ export default function App() {
           <span className="hidden sm:inline">ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-          <button onClick={() => setView('explorer')} className="text-gray-400 hover:text-white transition-colors">Campuses</button>
+          <button onClick={() => navigateTo('groups')} className="text-gray-400 hover:text-white transition-colors">Campuses</button>
           <button onClick={() => setView('about')} className="text-gray-400 hover:text-white transition-colors">About</button>
           <button 
-            onClick={() => isLoggedIn ? setView('dashboard') : setIsLoginOpen(true)}
+            onClick={() => isLoggedIn ? navigateTo('dashboard') : setIsLoginOpen(true)}
             className="px-5 py-2 rounded-full bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
           >
             {isLoggedIn ? 'Dashboard' : 'Sign In'}
@@ -1241,7 +1318,7 @@ export default function App() {
           className="absolute pointer-events-auto select-none hidden md:block cursor-pointer z-20"
           onClick={() => {
             setSelectedCampus(c);
-            setView('explorer');
+            navigateTo('groups');
           }}
         >
           <span className="px-3 py-1 rounded-full text-[10px] font-medium border border-amber-400/20 bg-amber-100/5 text-amber-200/60 backdrop-blur-sm hover:bg-amber-400/20 hover:text-amber-200 transition-colors">
@@ -1287,7 +1364,7 @@ export default function App() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setView('explorer')}
+            onClick={() => navigateTo('groups')}
             className="flex-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
           >
             Explore Campuses <ArrowRight size={18} />
@@ -1490,7 +1567,7 @@ export default function App() {
             <p className="text-gray-400">Discover the diverse branches of the MSU System.</p>
           </div>
           <button 
-            onClick={() => setView('home')}
+            onClick={() => navigateTo('home')}
             className="p-3 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
           >
             <X size={24} />
@@ -1629,7 +1706,7 @@ export default function App() {
                       <button 
                         onClick={() => {
                           setActiveRoom(group.name.toLowerCase().replace(/\s+/g, '-'));
-                          setView('messenger');
+                          navigateTo('messenger');
                         }}
                         className="text-amber-500 hover:text-amber-400 text-xs"
                       >
@@ -1726,7 +1803,7 @@ export default function App() {
                     onClick={() => {
                       setActiveRoom(selectedGroup.name.toLowerCase().replace(/\s+/g, '-'));
                       setSelectedGroup(null);
-                      setView('messenger');
+                      navigateTo('messenger');
                     }}
                     className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
                   >
@@ -1748,7 +1825,7 @@ export default function App() {
           <div className="w-8 h-8"><Logo /></div>
           <span>ONE<span className="text-amber-500">MSU</span></span>
         </div>
-        <button onClick={() => setView('home')} className="text-gray-400 hover:text-white"><X /></button>
+        <button onClick={() => navigateTo('home')} className="text-gray-400 hover:text-white"><X /></button>
       </nav>
 
       <main className="max-w-4xl mx-auto p-8 md:p-16">
@@ -1817,7 +1894,7 @@ export default function App() {
       <div className="max-w-3xl mx-auto">
         <header className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-metallic-gold">Feedbacks</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/20 to-transparent border border-amber-500/20">
           <h3 className="font-bold mb-2 flex items-center gap-2"><Info size={16} /> Share your thoughts</h3>
@@ -1874,10 +1951,24 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
       <div className="max-w-4xl mx-auto">
         <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Threads</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+          <h2 className="text-3xl font-bold text-metallic-gold">Library Feed</h2>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="space-y-6">
+          <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
+            <h4 className="font-bold mb-4 flex items-center gap-2"><Users size={18} className="text-amber-500" /> Following Feed</h4>
+            <div className="space-y-3">
+              {followingFeed.slice(0, 12).map((m: any) => (
+                <div key={m.id} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                  <div className="text-sm font-semibold text-white">{m.sender_name}</div>
+                  <div className="text-sm text-gray-300">{m.content || 'Shared an attachment'}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">{new Date(m.timestamp).toLocaleString()}</div>
+                </div>
+              ))}
+              {followingFeed.length === 0 && <div className="text-sm text-gray-500">Nothing here yet.</div>}
+            </div>
+          </div>
+
           <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
             <h4 className="font-bold mb-4 flex items-center gap-2"><MessageSquare size={18} className="text-amber-500" /> Announcements</h4>
             <Feed room="announcements" />
@@ -1983,7 +2074,7 @@ export default function App() {
         </div>
         <div className="mt-6 flex items-center gap-3">
           <button type="submit" disabled={saving} className={`px-4 py-2 rounded-lg bg-amber-500 text-black font-bold transition-colors ${saving ? 'opacity-60 cursor-not-allowed' : 'hover:bg-amber-400'}`}>{saving ? 'Saving…' : 'Save Changes'}</button>
-          <button onClick={() => setView('messenger')} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">Open Messenger</button>
+          <button onClick={() => navigateTo('messenger')} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">Open Messenger</button>
           {savedAt && <span className="text-xs text-emerald-400">Saved</span>}
         </div>
       </form>
@@ -2007,7 +2098,7 @@ export default function App() {
       <div className="max-w-3xl mx-auto">
         <header className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold text-metallic-gold">Profile</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="rounded-3xl overflow-hidden border border-white/10 bg-white/5">
           <div className="h-40 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative group"
@@ -2048,11 +2139,11 @@ export default function App() {
                   <div className="text-[10px] text-gray-500 uppercase tracking-wider">Posts</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-white">0</div>
+                  <div className="text-lg font-bold text-white">{followStats.followers}</div>
                   <div className="text-[10px] text-gray-500 uppercase tracking-wider">Followers</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-bold text-white">0</div>
+                  <div className="text-lg font-bold text-white">{followStats.following}</div>
                   <div className="text-[10px] text-gray-500 uppercase tracking-wider">Following</div>
                 </div>
                 <button
@@ -2093,6 +2184,52 @@ export default function App() {
     </div>
   );
 
+  const renderSettingsPage = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-4xl mx-auto">
+        <header className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold text-metallic-gold">Settings</h2>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+        </header>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button className="p-4 rounded-2xl bg-white/5 border border-white/10 text-left cursor-pointer" onClick={() => navigateTo('profile')}>
+            <div className="font-semibold">Profile</div><div className="text-xs text-gray-500">Manage your account</div>
+          </button>
+          <button className="p-4 rounded-2xl bg-white/5 border border-white/10 text-left cursor-pointer" onClick={() => navigateTo('messenger')}>
+            <div className="font-semibold">Messenger</div><div className="text-xs text-gray-500">Chat and media preferences</div>
+          </button>
+        </div>
+        {user?.email === 'xandercamarin@gmail.com' && ownerSettings && (
+          <div className="mt-8 p-6 rounded-3xl bg-white/5 border border-amber-500/30">
+            <h3 className="text-xl font-bold text-amber-400 mb-4">Owner Control Center</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Site Name</div>
+                <input value={ownerSettings.site_name || 'ONEMSU'} onChange={(e) => setOwnerSettings((s: any) => ({ ...s, site_name: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2" />
+              </div>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                <span>Maintenance Mode</span>
+                <input type="checkbox" checked={!!ownerSettings.maintenance_mode} onChange={(e) => setOwnerSettings((s: any) => ({ ...s, maintenance_mode: e.target.checked ? 1 : 0 }))} />
+              </label>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                <span>Messenger Enabled</span>
+                <input type="checkbox" checked={!!ownerSettings.messenger_enabled} onChange={(e) => setOwnerSettings((s: any) => ({ ...s, messenger_enabled: e.target.checked ? 1 : 0 }))} />
+              </label>
+              <label className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+                <span>Confession Enabled</span>
+                <input type="checkbox" checked={!!ownerSettings.confession_enabled} onChange={(e) => setOwnerSettings((s: any) => ({ ...s, confession_enabled: e.target.checked ? 1 : 0 }))} />
+              </label>
+            </div>
+            <button className="mt-4 px-4 py-2 rounded-lg bg-amber-500 text-black font-bold" onClick={async () => {
+              const res = await fetch('/api/owner/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: user.email, ...ownerSettings }) }).then(r => r.json());
+              if (res.success) setOwnerSettings(res.settings);
+            }}>Save Owner Settings</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderFreedomwall = () => (
     <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
       <div className="max-w-3xl mx-auto">
@@ -2101,7 +2238,7 @@ export default function App() {
             <h2 className="text-3xl font-bold text-metallic-gold flex items-center gap-2"><MessageCircleHeart size={28} className="text-rose-400" /> Freedom Wall</h2>
             <p className="text-gray-400 mt-1">Share your thoughts anonymously</p>
           </div>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="card-gold p-6 rounded-3xl mb-8">
           <div className="flex items-center gap-3 mb-3">
@@ -2221,7 +2358,7 @@ export default function App() {
       <div className={`${mobileMessengerView === 'list' ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-white/5 flex-col`}>
         <div className="p-6 border-b border-white/5 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">Messenger</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+          <button onClick={() => navigateTo('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </div>
         
         <div className="p-4">
@@ -2669,7 +2806,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.15 }}
           >
             {renderHome()}
           </motion.div>
@@ -2680,7 +2817,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderExplorer()}
           </motion.div>
@@ -2691,7 +2828,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderAbout()}
           </motion.div>
@@ -2702,7 +2839,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, scale: 1.1 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.15 }}
           >
             {renderDashboard()}
           </motion.div>
@@ -2713,7 +2850,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderNewsfeed()}
           </motion.div>
@@ -2724,18 +2861,18 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderProfile()}
           </motion.div>
         )}
-        {view === 'freedomwall' && (
+        {(view === 'freedomwall' || view === 'confession') && (
           <motion.div
             key="freedomwall"
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderFreedomwall()}
           </motion.div>
@@ -2746,9 +2883,29 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderAssistant()}
+          </motion.div>
+        )}
+        {view === 'settings' && (
+          <motion.div key="settings" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+            {renderSettingsPage()}
+          </motion.div>
+        )}
+        {view === 'library' && (
+          <motion.div key="library" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+            {renderNewsfeed()}
+          </motion.div>
+        )}
+        {view === 'groups' && (
+          <motion.div key="groups" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+            {renderExplorer()}
+          </motion.div>
+        )}
+        {view === 'lostfound' && (
+          <motion.div key="lostfound" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+            {renderFeedbacks()}
           </motion.div>
         )}
         {view === 'feedbacks' && (
@@ -2757,7 +2914,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+            transition={{ duration: 0.15 }}
           >
             {renderFeedbacks()}
           </motion.div>
@@ -2768,7 +2925,7 @@ ${res.user.year_level || ''}`);
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.15 }}
           >
             {renderMessenger()}
           </motion.div>
@@ -2794,8 +2951,8 @@ ${res.user.year_level || ''}`);
             className="fixed inset-0 z-40 bg-black/95 flex flex-col items-center justify-center p-8 md:hidden"
           >
             <div className="flex flex-col gap-8 text-center">
-              <button onClick={() => { setView('home'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">Home</button>
-              <button onClick={() => { setView('explorer'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">Campuses</button>
+              <button onClick={() => { navigateTo('home'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">Home</button>
+              <button onClick={() => { navigateTo('groups'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">Campuses</button>
               <button onClick={() => { setView('about'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">About</button>
               <div className="h-px w-24 bg-amber-500/30 mx-auto my-4" />
               <div className="flex gap-6 justify-center text-amber-500">
