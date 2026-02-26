@@ -185,6 +185,9 @@ async function startServer() {
     `);
     const info = stmt.run(name, campus, avatar, student_id, program, year_level, department, bio, cover_photo, id);
     if (info.changes === 0) return res.status(404).json({ success: false, message: "Not found" });
+    if (name) {
+      db.prepare("UPDATE messages SET sender_name = ? WHERE sender_id = ?").run(name, id);
+    }
     const user = db.prepare("SELECT id, name, email, campus, avatar, student_id, program, year_level, department, bio, cover_photo FROM users WHERE id = ?").get(id);
     res.json({ success: true, user });
   });
@@ -293,9 +296,14 @@ User (${userName || "Student"}): ${message}`
   });
 
   app.post("/api/auth/signup", (req, res) => {
-    const { name, email, password, campus } = req.body;
+    const { name, email, password, student_id, program, year_level, campus } = req.body || {};
+    if (!name || !email || !password || !student_id || !program || !year_level) {
+      return res.status(400).json({ success: false, message: "Please fill in all required fields." });
+    }
     try {
-      const info = db.prepare("INSERT INTO users (name, email, password, campus) VALUES (?, ?, ?, ?)").run(name, email, password, campus);
+      const info = db
+        .prepare("INSERT INTO users (name, email, password, campus, student_id, program, year_level) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(name, email, password, campus || 'MSU Main', student_id, program, year_level);
       const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
       res.json({ success: true, user });
     } catch (err) {

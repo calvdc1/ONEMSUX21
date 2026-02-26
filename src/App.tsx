@@ -45,6 +45,12 @@ interface User {
   email: string;
   campus: string;
   avatar?: string;
+  student_id?: string;
+  program?: string;
+  year_level?: string;
+  department?: string;
+  bio?: string;
+  cover_photo?: string;
 }
 
 interface Message {
@@ -501,15 +507,17 @@ export default function App() {
   const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
     const name = formData.get('name') as string;
+    const student_id = formData.get('student_id') as string;
+    const program = formData.get('program') as string;
+    const year_level = formData.get('year_level') as string;
+    const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const campus = formData.get('campus') as string;
 
     const res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, campus })
+      body: JSON.stringify({ name, student_id, program, year_level, email, password, campus: 'MSU Main' })
     });
 
     const data = await res.json();
@@ -1172,7 +1180,7 @@ export default function App() {
               className="w-full max-w-md card-gold p-8 rounded-3xl"
             >
               <div className="flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-bold text-metallic-gold">Join ONEMSU</h3>
+                <h3 className="text-2xl font-bold text-metallic-gold">Create Student Account</h3>
                 <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
@@ -1188,7 +1196,37 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">ID Number</label>
+                  <input 
+                    name="student_id"
+                    type="text" 
+                    placeholder="2024-00001"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Course</label>
+                  <input 
+                    name="program"
+                    type="text" 
+                    placeholder="BS Computer Engineering"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Year Level</label>
+                  <input 
+                    name="year_level"
+                    type="text" 
+                    placeholder="1st Year"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
                   <input 
                     name="email"
                     type="email" 
@@ -1196,16 +1234,6 @@ export default function App() {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Campus</label>
-                  <select 
-                    name="campus"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-                    required
-                  >
-                    {CAMPUSES.map(c => <option key={c.slug} value={c.name} className="bg-[#0a0502]">{c.name}</option>)}
-                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
@@ -1678,12 +1706,12 @@ export default function App() {
       name: user?.name || '',
       campus: user?.campus || '',
       avatar: user?.avatar || '',
-      student_id: '',
-      program: '',
-      year_level: '',
-      department: '',
-      bio: '',
-      cover_photo: ''
+      student_id: user?.student_id || '',
+      program: user?.program || '',
+      year_level: user?.year_level || '',
+      department: user?.department || '',
+      bio: user?.bio || '',
+      cover_photo: user?.cover_photo || ''
     });
     const [saving, setSaving] = useState(false);
     const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -1740,8 +1768,36 @@ export default function App() {
           <Input label="Course / Program" value={form.program} onChange={(v) => setForm({ ...form, program: v })} />
           <Input label="Year Level" value={form.year_level} onChange={(v) => setForm({ ...form, year_level: v })} />
           <Input label="Department" value={form.department} onChange={(v) => setForm({ ...form, department: v })} />
-          <Input label="Profile Photo URL" value={form.avatar} onChange={(v) => setForm({ ...form, avatar: v })} />
-          <Input label="Cover Photo URL" value={form.cover_photo} onChange={(v) => setForm({ ...form, cover_photo: v })} />
+          <Input label="Profile Photo URL (or upload below)" value={form.avatar} onChange={(v) => setForm({ ...form, avatar: v })} />
+          <Input label="Background Photo URL (or upload below)" value={form.cover_photo} onChange={(v) => setForm({ ...form, cover_photo: v })} />
+          <div className="md:col-span-2 flex flex-wrap gap-2">
+            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 cursor-pointer">
+              Upload Profile Photo
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async () => {
+                  const up = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl: reader.result }) }).then(r => r.json());
+                  if (up.success) setForm((prev) => ({ ...prev, avatar: up.url }));
+                };
+                reader.readAsDataURL(file);
+              }} />
+            </label>
+            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 cursor-pointer">
+              Upload Background
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async () => {
+                  const up = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl: reader.result }) }).then(r => r.json());
+                  if (up.success) setForm((prev) => ({ ...prev, cover_photo: up.url }));
+                };
+                reader.readAsDataURL(file);
+              }} />
+            </label>
+          </div>
           <Textarea label="Bio / Intro" value={form.bio} onChange={(v) => setForm({ ...form, bio: v })} />
         </div>
         <div className="mt-6 flex items-center gap-3">
@@ -1774,7 +1830,7 @@ export default function App() {
         </header>
         <div className="rounded-3xl overflow-hidden border border-white/10 bg-white/5">
           <div className="h-40 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative"
-               style={{ backgroundImage: user?.cover_photo ? `url(${(user as any).cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+               style={{ backgroundImage: user?.cover_photo ? `url(${user.cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
             <div className="absolute -bottom-10 left-6">
               <div className="w-24 h-24 rounded-full ring-4 ring-[#0a0502] overflow-hidden bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
                 {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user?.name || 'U')[0]}
@@ -1784,9 +1840,12 @@ export default function App() {
           <div className="px-6 pt-12 pb-6">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
               <div>
+                <div className="text-xs uppercase tracking-wider text-amber-400 mb-1">Student Profile • ONEMSU</div>
                 <div className="text-2xl font-bold text-white">{user?.name || 'MSUan'}</div>
+                <div className="text-sm text-gray-400">{user?.program || 'Course not set'}</div>
+                <div className="text-sm text-gray-500">ID: {user?.student_id || 'N/A'} • {user?.year_level || 'Year not set'}</div>
                 <div className="text-sm text-gray-500">{user?.email || 'Not connected'}</div>
-                {user?.bio && <div className="mt-2 text-sm text-gray-300">{(user as any).bio}</div>}
+                {user?.bio && <div className="mt-2 text-sm text-gray-300">{user.bio}</div>}
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-center">
@@ -1816,12 +1875,23 @@ export default function App() {
             <ProfileForm user={user} onSaved={(u) => { setUser(u); setProfileEditing(false); }} />
           </div>
         ) : (
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="aspect-square rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 text-xs">
-                No posts
-              </div>
-            ))}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <div className="text-xs uppercase tracking-wider text-gray-500">Full Name</div>
+              <div className="text-lg font-semibold text-white mt-1">{user?.name || 'Not set'}</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <div className="text-xs uppercase tracking-wider text-gray-500">Course</div>
+              <div className="text-lg font-semibold text-white mt-1">{user?.program || 'Not set'}</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <div className="text-xs uppercase tracking-wider text-gray-500">ID Number</div>
+              <div className="text-lg font-semibold text-white mt-1">{user?.student_id || 'Not set'}</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <div className="text-xs uppercase tracking-wider text-gray-500">Year Level</div>
+              <div className="text-lg font-semibold text-white mt-1">{user?.year_level || 'Not set'}</div>
+            </div>
           </div>
         )}
       </div>
