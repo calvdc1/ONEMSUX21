@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Github,
   MessageCircle,
+  Heart as MessageCircleHeart,
   Send,
   Search,
   Hash,
@@ -543,7 +544,7 @@ export default function App() {
           <div className="lg:col-span-2 space-y-8">
             <div className="card-gold p-8 rounded-3xl">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <Sparkles className="text-amber-500" size={20} /> Freedomwall Highlights
+                <Sparkles className="text-amber-500" size={20} /> Freedom Wall Highlights
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {freedomPosts.slice(0, 4).map((p) => (
@@ -564,7 +565,7 @@ export default function App() {
               </div>
               <div className="mt-6 flex justify-end">
                 <button onClick={() => setView('freedomwall')} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors">
-                  Open Freedomwall
+                  Open Freedom Wall
                 </button>
               </div>
             </div>
@@ -769,7 +770,7 @@ export default function App() {
                   { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
                   { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
                   { name: 'Threads', icon: <MessageSquare size={14} />, action: () => setView('newsfeed') },
-                  { name: 'Freedomwall', icon: <Sparkles size={14} />, action: () => setView('freedomwall') },
+                  { name: 'Freedom Wall', icon: <Sparkles size={14} />, action: () => setView('freedomwall') },
                   { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
                   { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
                 ].map(item => (
@@ -1642,7 +1643,10 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
       <div className="max-w-3xl mx-auto">
         <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Freedomwall</h2>
+          <div>
+            <h2 className="text-3xl font-bold text-metallic-gold flex items-center gap-2"><MessageCircleHeart size={28} className="text-rose-400" /> Freedom Wall</h2>
+            <p className="text-gray-400 mt-1">Share your thoughts anonymously</p>
+          </div>
           <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="card-gold p-6 rounded-3xl mb-8">
@@ -1667,7 +1671,7 @@ export default function App() {
           <textarea
             value={freedomText}
             onChange={(e) => setFreedomText(e.target.value)}
-            placeholder="Post anonymously to the Freedomwall..."
+            placeholder="Share your thoughts anonymously..."
             rows={3}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
           />
@@ -1906,8 +1910,7 @@ export default function App() {
                 <div className="h-full flex items-center justify-center text-center text-gray-500">
                   <div>
                     <MessageCircle className="mx-auto mb-3 opacity-70" />
-                    <p className="text-sm">No messages yet in <span className="capitalize">{activeRoom.replace(/-/g, ' ')}</span>.</p>
-                    <p className="text-xs text-gray-600 mt-1">Be the first to start the conversation.</p>
+                    <p className="text-sm">No messages yet. Start the conversation!</p>
                   </div>
                 </div>
               ) : (
