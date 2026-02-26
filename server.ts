@@ -32,7 +32,17 @@ try {
     sender_name TEXT,
     content TEXT,
     room_id TEXT,
+    attachment_url TEXT,
+    attachment_type TEXT,
+    edited_at TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS message_reactions (
+    message_id INTEGER,
+    user_id INTEGER,
+    emoji TEXT,
+    PRIMARY KEY (message_id, user_id, emoji)
   );
 
   CREATE TABLE IF NOT EXISTS read_receipts (
@@ -87,7 +97,16 @@ try {
         sender_name TEXT,
         content TEXT,
         room_id TEXT,
+        attachment_url TEXT,
+        attachment_type TEXT,
+        edited_at TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS message_reactions (
+        message_id INTEGER,
+        user_id INTEGER,
+        emoji TEXT,
+        PRIMARY KEY (message_id, user_id, emoji)
       );
       CREATE TABLE IF NOT EXISTS read_receipts (
         user_id INTEGER,
@@ -133,6 +152,9 @@ try { db.exec(`ALTER TABLE users ADD COLUMN year_level TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN department TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN bio TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN cover_photo TEXT`); } catch {}
+try { db.exec(`ALTER TABLE messages ADD COLUMN attachment_url TEXT`); } catch {}
+try { db.exec(`ALTER TABLE messages ADD COLUMN attachment_type TEXT`); } catch {}
+try { db.exec(`ALTER TABLE messages ADD COLUMN edited_at TEXT`); } catch {}
 const groupsCount = db.prepare("SELECT COUNT(*) AS c FROM groups").get() as { c: number };
 if (!groupsCount.c) {
   const stmt = db.prepare("INSERT INTO groups (name, description, campus) VALUES (?, ?, ?)");
@@ -237,9 +259,9 @@ async function startServer() {
     if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
       return res.status(400).json({ success: false, message: "Invalid dataUrl" });
     }
-    const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    const match = dataUrl.match(/^data:((?:image|audio)\/[\w.+-]+);base64,(.+)$/);
     if (!match) {
-      return res.status(400).json({ success: false, message: "Only base64 image data is supported" });
+      return res.status(400).json({ success: false, message: "Only base64 image/audio data is supported" });
     }
     const mime = match[1];
     const base64 = match[2];
@@ -313,6 +335,7 @@ User (${userName || "Student"}): ${message}`
 
   app.get("/api/messages/:roomId", (req, res) => {
     const roomId = req.params.roomId;
+    const viewer = Number(req.query.viewer || 0);
     const before = req.query.before as string | undefined;
     const pageSize = 50;
     let rows: any[] = [];
@@ -329,8 +352,51 @@ User (${userName || "Student"}): ${message}`
         )
         .all(roomId, pageSize);
     }
-    // Return ascending order for UI
-    res.json(rows.reverse());
+    const asc = rows.reverse();
+    const out = asc.map((m) => {
+      const reacts = db.prepare("SELECT emoji, COUNT(*) as count FROM message_reactions WHERE message_id = ? GROUP BY emoji").all(m.id);
+      const mine = Number.isFinite(viewer) && viewer > 0
+        ? db.prepare("SELECT emoji FROM message_reactions WHERE message_id = ? AND user_id = ?").all(m.id, viewer).map((r: any) => r.emoji)
+        : [];
+      return { ...m, reactions: reacts, my_reactions: mine };
+    });
+    res.json(out);
+  });
+
+  app.post('/api/messages/:id/react', (req, res) => {
+    const id = Number(req.params.id);
+    const { userId, emoji } = req.body || {};
+    if (!id || !userId || !emoji) return res.status(400).json({ success: false, message: 'Missing fields' });
+    const exists = db.prepare('SELECT 1 FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?').get(id, userId, emoji);
+    if (exists) db.prepare('DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?').run(id, userId, emoji);
+    else db.prepare('INSERT INTO message_reactions (message_id, user_id, emoji) VALUES (?, ?, ?)').run(id, userId, emoji);
+    const reactions = db.prepare('SELECT emoji, COUNT(*) as count FROM message_reactions WHERE message_id = ? GROUP BY emoji').all(id);
+    const mine = db.prepare('SELECT emoji FROM message_reactions WHERE message_id = ? AND user_id = ?').all(id, userId).map((r: any) => r.emoji);
+    res.json({ success: true, reactions, my_reactions: mine });
+  });
+
+  app.put('/api/messages/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const { userId, content } = req.body || {};
+    if (!id || !userId || !content) return res.status(400).json({ success: false, message: 'Missing fields' });
+    const row = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as any;
+    if (!row) return res.status(404).json({ success: false, message: 'Not found' });
+    if (row.sender_id !== userId) return res.status(403).json({ success: false, message: 'Forbidden' });
+    db.prepare('UPDATE messages SET content = ?, edited_at = ? WHERE id = ?').run(content, new Date().toISOString(), id);
+    const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
+    res.json({ success: true, message: msg });
+  });
+
+  app.delete('/api/messages/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const userId = Number(req.query.userId);
+    if (!id || !userId) return res.status(400).json({ success: false, message: 'Missing fields' });
+    const row = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as any;
+    if (!row) return res.status(404).json({ success: false, message: 'Not found' });
+    if (row.sender_id !== userId) return res.status(403).json({ success: false, message: 'Forbidden' });
+    db.prepare('DELETE FROM message_reactions WHERE message_id = ?').run(id);
+    db.prepare('DELETE FROM messages WHERE id = ?').run(id);
+    res.json({ success: true, id });
   });
 
   app.get("/api/receipts/:roomId", (req, res) => {
@@ -401,18 +467,21 @@ User (${userName || "Student"}): ${message}`
         userConnectionCount.set(message.userId, count);
         if (count === 1) broadcastPresence(message.userId, true);
       } else if (message.type === "chat") {
-        const { senderId, senderName, content, roomId } = message;
+        const { senderId, senderName, content, roomId, attachmentUrl, attachmentType } = message;
         
-        // Save to DB
-        db.prepare("INSERT INTO messages (sender_id, sender_name, content, room_id) VALUES (?, ?, ?, ?)").run(senderId, senderName, content, roomId);
+        const info = db.prepare("INSERT INTO messages (sender_id, sender_name, content, room_id, attachment_url, attachment_type) VALUES (?, ?, ?, ?, ?, ?)").run(senderId, senderName, content || '', roomId, attachmentUrl || null, attachmentType || null);
 
-        // Broadcast to room
         const payload = JSON.stringify({
           type: "chat",
+          id: Number(info.lastInsertRowid),
           senderId,
           senderName,
           content,
           roomId,
+          attachment_url: attachmentUrl || null,
+          attachment_type: attachmentType || null,
+          reactions: [],
+          my_reactions: [],
           timestamp: new Date().toISOString()
         });
 

@@ -36,7 +36,12 @@ import {
   Volume2,
   Square,
   PhoneCall,
-  Video
+  Video,
+  Smile,
+  Pencil,
+  Trash2,
+  Paperclip,
+  Mic2
 } from 'lucide-react';
 
 // --- Types ---
@@ -275,6 +280,14 @@ export default function App() {
   const [imageZoom, setImageZoom] = useState(1);
   const [imageOffsetX, setImageOffsetX] = useState(0);
   const [imageOffsetY, setImageOffsetY] = useState(0);
+  const [mobileMessengerView, setMobileMessengerView] = useState<'list' | 'chat'>('list');
+  const [messageEditId, setMessageEditId] = useState<number | null>(null);
+  const [messageEditText, setMessageEditText] = useState('');
+  const [composerAttachment, setComposerAttachment] = useState<{ url: string; type: string } | null>(null);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const mediaRecorderRef = useRef<any>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string } | null>(null);
   const [newGroup, setNewGroup] = useState<{ name: string; description: string; campus: string; logoPreview: string | null }>({ name: '', description: '', campus: '', logoPreview: null });
   const [dashboardCreateOpen, setDashboardCreateOpen] = useState(false);
@@ -372,6 +385,12 @@ export default function App() {
   }, [isLoggedIn, view]);
 
   useEffect(() => {
+    if (isLoggedIn && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
     if (isLoggedIn && user) {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const socket = new WebSocket(`${protocol}//${window.location.host}`);
@@ -384,8 +403,16 @@ export default function App() {
 
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'chat' && data.roomId === activeRoom) {
-          setMessages(prev => [...prev, data]);
+        if (data.type === 'chat') {
+          if (data.roomId === activeRoom) {
+            setMessages(prev => [...prev, data]);
+          } else {
+            setUnreadCount((n) => n + 1);
+            if (typeof document !== 'undefined') document.title = `(${unreadCount + 1}) ONEMSU`;
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification(`${data.senderName || 'New message'}`, { body: data.content || 'Attachment received' });
+            }
+          }
         } else if (data.type === 'presence') {
           setOnlineUsers((prev) => ({ ...prev, [data.userId]: !!data.online }));
         }
@@ -405,9 +432,11 @@ export default function App() {
   };
 
   useEffect(() => {
+    setUnreadCount(0);
+    if (typeof document !== 'undefined') document.title = 'ONEMSU';
     if (isLoggedIn && activeRoom) {
       setHasMore(true);
-      fetch(`/api/messages/${activeRoom}`)
+      fetch(`/api/messages/${activeRoom}?viewer=${user?.id || 0}`)
         .then(res => res.json())
         .then((data: Message[]) => {
           setMessages(data);
@@ -557,16 +586,94 @@ export default function App() {
     setImageEditorOpen(false);
   };
 
+  const toggleReaction = async (messageId: number, emoji: string) => {
+    if (!user) return;
+    const res = await fetch(`/api/messages/${messageId}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, emoji })
+    }).then(r => r.json());
+    if (res.success) {
+      setMessages(prev => prev.map((m: any) => m.id === messageId ? { ...m, reactions: res.reactions, my_reactions: res.my_reactions } : m));
+    }
+  };
+
+  const editOwnMessage = async (messageId: number) => {
+    if (!user || !messageEditText.trim()) return;
+    const res = await fetch(`/api/messages/${messageId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, content: messageEditText.trim() })
+    }).then(r => r.json());
+    if (res.success) {
+      setMessages(prev => prev.map((m: any) => m.id === messageId ? { ...m, ...res.message } : m));
+      setMessageEditId(null);
+      setMessageEditText('');
+    }
+  };
+
+  const deleteOwnMessage = async (messageId: number) => {
+    if (!user) return;
+    const res = await fetch(`/api/messages/${messageId}?userId=${user.id}`, { method: 'DELETE' }).then(r => r.json());
+    if (res.success) setMessages(prev => prev.filter((m: any) => m.id !== messageId));
+  };
+
   const sendMessage = (content: string) => {
-    if (socketRef.current && user && content.trim()) {
+    if (socketRef.current && user && (content.trim() || composerAttachment)) {
       socketRef.current.send(JSON.stringify({
         type: 'chat',
         senderId: user.id,
         senderName: user.name,
         content,
-        roomId: activeRoom
+        roomId: activeRoom,
+        attachmentUrl: composerAttachment?.url,
+        attachmentType: composerAttachment?.type,
       }));
+      setComposerAttachment(null);
     }
+  };
+
+  const attachFileToComposer = async (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const up = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl: reader.result })
+      }).then(r => r.json());
+      if (up.success) setComposerAttachment({ url: up.url, type: file.type });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const toggleVoiceNote = async () => {
+    if (isRecordingVoice) {
+      mediaRecorderRef.current?.stop?.();
+      setIsRecordingVoice(false);
+      return;
+    }
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
+    mediaChunksRef.current = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) mediaChunksRef.current.push(e.data); };
+    recorder.onstop = async () => {
+      const blob = new Blob(mediaChunksRef.current, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const up = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUrl: reader.result })
+        }).then(r => r.json());
+        if (up.success) setComposerAttachment({ url: up.url, type: 'audio/webm' });
+      };
+      reader.readAsDataURL(blob);
+      stream.getTracks().forEach(t => t.stop());
+    };
+    recorder.start();
+    setIsRecordingVoice(true);
   };
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
@@ -959,6 +1066,7 @@ export default function App() {
                       rows={2}
                     />
                     <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMessengerView('list')} className="md:hidden p-2 rounded-lg hover:bg-white/5" aria-label="Back to rooms">←</button>
                       <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer w-fit">
                         Upload logo
                         <input
@@ -1214,7 +1322,20 @@ export default function App() {
               <form className="space-y-6" onSubmit={handleLogin}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email / ID</label>
-                  <input 
+                  {composerAttachment && (
+                  <div className="mr-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs">
+                    <span>{composerAttachment.type.startsWith('audio/') ? 'Voicemail attached' : 'Attachment ready'}</span>
+                    <button type="button" onClick={() => setComposerAttachment(null)} className="text-rose-400">✕</button>
+                  </div>
+                )}
+                <label className="p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer" title="Attach photo">
+                  <Paperclip size={16} />
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f=e.target.files?.[0]; if (f) attachFileToComposer(f); }} />
+                </label>
+                <button type="button" onClick={toggleVoiceNote} className={`p-3 rounded-xl border ${isRecordingVoice ? 'bg-rose-500/20 border-rose-500/30 text-rose-300' : 'bg-white/5 border-white/10 text-gray-300'}`} title="Voice message">
+                  <Mic2 size={16} />
+                </button>
+                <input 
                     name="email"
                     type="email" 
                     placeholder="e.g. juan.delacruz@msumain.edu.ph"
@@ -2095,9 +2216,9 @@ export default function App() {
     </div>
   );
   const renderMessenger = () => (
-    <div className="min-h-screen bg-[#0a0502] flex flex-col md:flex-row">
+    <div className="h-screen w-screen bg-[#0a0502] flex flex-col md:flex-row overflow-hidden">
       {/* Sidebar */}
-      <div className="w-full md:w-80 border-r border-white/5 flex flex-col">
+      <div className={`${mobileMessengerView === 'list' ? 'flex' : 'hidden'} md:flex w-full md:w-80 border-r border-white/5 flex-col`}>
         <div className="p-6 border-b border-white/5 flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">Messenger</h2>
           <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
@@ -2123,6 +2244,7 @@ export default function App() {
                   key={u.id}
                   onClick={() => {
                     setActiveRoom(`dm-${Math.min(user!.id, u.id)}-${Math.max(user!.id, u.id)}`);
+                    setMobileMessengerView('chat');
                     setSearchResults([]);
                     setSearchQuery('');
                   }}
@@ -2146,7 +2268,7 @@ export default function App() {
           {['global', 'announcements', 'help-desk'].map(room => (
             <button 
               key={room}
-              onClick={() => setActiveRoom(room)}
+              onClick={() => { setActiveRoom(room); setMobileMessengerView('chat'); }}
               aria-current={activeRoom === room ? 'page' : undefined}
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === room ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30`}
             >
@@ -2159,7 +2281,7 @@ export default function App() {
           {CAMPUSES.map(c => (
             <button 
               key={c.slug}
-              onClick={() => setActiveRoom(c.slug)}
+              onClick={() => { setActiveRoom(c.slug); setMobileMessengerView('chat'); }}
               aria-current={activeRoom === c.slug ? 'page' : undefined}
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeRoom === c.slug ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30`}
             >
@@ -2186,10 +2308,6 @@ export default function App() {
               )}
               <p className="text-[10px] text-gray-500">
                 {activeRoom.startsWith('dm') ? 'Direct Message' : ['global', 'announcements', 'help-desk'].includes(activeRoom) ? 'Channel' : 'Campus'}
-              </p>
-              <p className="text-xs text-green-500 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Active now
               </p>
             </div>
           </div>
@@ -2255,7 +2373,7 @@ export default function App() {
         </div>
 
         <div className="flex-1 md:flex md:gap-6">
-          <div className="flex-1 min-w-0 flex flex-col">
+          <div className={`${mobileMessengerView === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col`}>
             <div className="flex-1 min-w-0 p-6">
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center text-gray-500">
@@ -2277,7 +2395,7 @@ export default function App() {
                     if (!oldest) return;
                     setIsLoadingMore(true);
                     try {
-                      const older: Message[] = await fetch(`/api/messages/${activeRoom}?before=${encodeURIComponent(oldest)}`).then(r => r.json());
+                      const older: Message[] = await fetch(`/api/messages/${activeRoom}?before=${encodeURIComponent(oldest)}&viewer=${user?.id || 0}`).then(r => r.json());
                       if (older.length > 0) {
                         setMessages(prev => [...older, ...prev]);
                         setHasMore(older.length >= 50);
@@ -2309,11 +2427,55 @@ export default function App() {
                       <div key={String((m as any).id ?? `${(m as any).timestamp}-${index}`)} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6`}>
                         <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
                           <span className={`text-[10px] font-bold text-gray-500 ${isMe ? 'mr-2 text-right' : 'ml-2 text-left'}`}>
-                            {sname}
+                            <button onClick={async () => {
+                              const uid = sid;
+                              if (!uid) return;
+                              const res = await fetch(`/api/profile/${uid}`).then(r => r.json());
+                              if (res.success) alert(`${res.user.name}
+${res.user.program || ''}
+ID: ${res.user.student_id || ''}
+${res.user.year_level || ''}`);
+                            }} className="hover:underline">{sname}</button>
                           </span>
                           <div className={`${compactBubbles ? 'px-3 py-1.5' : 'px-4 py-2'} rounded-2xl text-sm break-words whitespace-pre-wrap ${isMe ? 'bg-amber-500 text-black rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none'}`}>
+                            {(m as any).content || (m as any).attachment_url ? null : ''}
                             {(m as any).content}
+                            {(m as any).attachment_url && (
+                              <div className="mt-2">
+                                {String((m as any).attachment_type || '').startsWith('image/') ? (
+                                  <img src={(m as any).attachment_url} alt="attachment" className="max-h-48 rounded-lg border border-white/10" />
+                                ) : String((m as any).attachment_type || '').startsWith('audio/') ? (
+                                  <audio controls src={(m as any).attachment_url} className="max-w-full" />
+                                ) : (
+                                  <a href={(m as any).attachment_url} target="_blank" className="underline">Open attachment</a>
+                                )}
+                              </div>
+                            )}
                           </div>
+                          <div className="flex items-center gap-2 mt-1 px-1">
+                            {['👍','❤️','😂','😮','😢'].map((em) => {
+                              const list = (m as any).reactions || [];
+                              const mine = ((m as any).my_reactions || []).includes(em);
+                              const found = list.find((r: any) => r.emoji === em);
+                              return (
+                                <button key={em} onClick={() => toggleReaction(Number((m as any).id), em)} className={`text-xs px-1.5 py-0.5 rounded-full border ${mine ? 'bg-amber-500/20 border-amber-500/30' : 'bg-white/5 border-white/10'}`}>
+                                  {em}{found ? ` ${found.count}` : ''}
+                                </button>
+                              );
+                            })}
+                            {isMe && (
+                              <>
+                                <button onClick={() => { setMessageEditId(Number((m as any).id)); setMessageEditText(String((m as any).content || '')); }} className="text-[10px] text-gray-400 hover:text-white"><Pencil size={12} /></button>
+                                <button onClick={() => deleteOwnMessage(Number((m as any).id))} className="text-[10px] text-rose-400 hover:text-rose-300"><Trash2 size={12} /></button>
+                              </>
+                            )}
+                          </div>
+                          {messageEditId === Number((m as any).id) && (
+                            <div className="mt-2 flex gap-2">
+                              <input value={messageEditText} onChange={(e) => setMessageEditText(e.target.value)} className="flex-1 bg-black/30 border border-white/10 rounded px-2 py-1 text-xs" />
+                              <button onClick={() => editOwnMessage(Number((m as any).id))} className="text-xs px-2 rounded bg-amber-500 text-black">Save</button>
+                            </div>
+                          )}
                           {showTimestamps && (
                             <span className="text-[8px] text-gray-600 px-2">
                               {new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -2358,13 +2520,18 @@ export default function App() {
           </div>
           <aside className="hidden md:block w-80 border-l border-white/5 bg-black/10">
             <div className="p-6">
-              <h4 className="font-bold mb-4">Notes</h4>
-              <textarea
-                value={notesByRoom[activeRoom] || ''}
-                onChange={(e) => setNotesByRoom(prev => ({ ...prev, [activeRoom]: e.target.value }))}
-                placeholder="Write your notes for this room…"
-                className="w-full h-64 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-              />
+              <h4 className="font-bold mb-4">Conversation Details</h4>
+              <div className="space-y-3 text-sm text-gray-400">
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                  <div className="text-xs uppercase tracking-wider text-gray-500">Room</div>
+                  <div className="text-white capitalize">{activeRoom.replace(/-/g, ' ')}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                  <div className="text-xs uppercase tracking-wider text-gray-500">Unread Notifications</div>
+                  <div className="text-white">{unreadCount}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs">Reactions, media attachments, voicemail, and message management are enabled in this chat.</div>
+              </div>
             </div>
           </aside>
         </div>
