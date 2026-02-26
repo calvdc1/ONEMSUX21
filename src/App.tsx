@@ -1047,7 +1047,7 @@ export default function App() {
           setIsLoggedIn(true);
           setIsLoginOpen(false);
           setIsAuthLoading(false);
-        }, 1000);
+        }, 6000);
       } else {
         alert(data.message);
         setIsAuthLoading(false);
@@ -1080,7 +1080,7 @@ export default function App() {
           setIsLoggedIn(true);
           setIsSignupOpen(false);
           setIsAuthLoading(false);
-        }, 1000);
+        }, 6000);
       } else {
         alert(data.message);
         setIsAuthLoading(false);
@@ -1464,12 +1464,12 @@ export default function App() {
   const renderHome = () => (
     <div className="relative flex flex-col items-center justify-center min-h-screen p-8 text-center overflow-hidden hero-metallic">
       {/* Navigation Header */}
-      <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-50">
-        <div className="flex items-center gap-3 font-bold text-xl cursor-pointer" onClick={() => setView('home')}>
-          <div className="w-12 h-12">
+      <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-between items-center z-50">
+        <div className="flex items-center gap-2 md:gap-3 font-bold text-lg md:text-xl cursor-pointer" onClick={() => setView('home')}>
+          <div className="w-12 h-12 md:w-16 md:h-16 rounded-lg border-2 border-amber-500 p-1 bg-black/40 shrink-0">
             <Logo />
           </div>
-          <span className="hidden sm:inline tracking-tighter">ONE<span className="text-amber-500">MSU</span></span>
+          <span className="hidden sm:inline tracking-tighter text-sm md:text-base">ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium">
           <button onClick={() => setView('explorer')} className="text-gray-400 hover:text-white transition-colors">Campuses</button>
@@ -1589,31 +1589,31 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-8 rounded-3xl"
+              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-bold text-metallic-gold">Connect to ONEMSU</h3>
+              <div className="flex justify-between items-center mb-6 md:mb-8">
+                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Connect to ONEMSU</h3>
                 <button onClick={() => setIsLoginOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
-              <form className="space-y-6" onSubmit={handleLogin}>
+              <form className="space-y-4 md:space-y-6" onSubmit={handleLogin}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email / ID</label>
-                  <input 
+                  <input
                     name="email"
-                    type="email" 
+                    type="email"
                     placeholder="e.g. juan.delacruz@msumain.edu.ph"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
-                  <input 
+                  <input
                     name="password"
-                    type="password" 
+                    type="password"
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
@@ -1630,16 +1630,16 @@ export default function App() {
                     Forgot password?
                   </button>
                 </div>
-                <button 
+                <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                         className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Connecting...
@@ -1650,9 +1650,9 @@ export default function App() {
                 </button>
               </form>
 
-              <div className="mt-8 pt-8 border-t border-white/5">
-                <h4 className="text-sm font-semibold text-gray-400 mb-4">Download ONEMSU App</h4>
-                <div className="grid grid-cols-3 gap-3 mb-8">
+              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5">
+                <h4 className="text-xs md:text-sm font-semibold text-gray-400 mb-4">Download ONEMSU App</h4>
+                <div className="grid grid-cols-3 gap-2 md:gap-3 mb-6 md:mb-8">
                   <a
                     href="#"
                     className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
@@ -1701,31 +1701,31 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-8 rounded-3xl"
+              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-2xl font-bold text-metallic-gold">Join ONEMSU</h3>
-                <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
+              <div className="flex justify-between items-center mb-6 md:mb-8">
+                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Join ONEMSU</h3>
+                <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white shrink-0"><X /></button>
               </div>
               
-              <form className="space-y-6" onSubmit={handleSignup}>
+              <form className="space-y-4 md:space-y-6" onSubmit={handleSignup}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <input 
+                  <input
                     name="name"
-                    type="text" 
+                    type="text"
                     placeholder="Juan Dela Cruz"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
-                  <input 
+                  <input
                     name="email"
-                    type="email" 
+                    type="email"
                     placeholder="juan.delacruz@gmail.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                     pattern=".+@gmail\.com"
                     title="Please use a valid @gmail.com address"
@@ -1733,9 +1733,9 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Campus</label>
-                  <select 
+                  <select
                     name="campus"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   >
                     {CAMPUSES.map(c => <option key={c.slug} value={c.name} className="bg-[#0a0502]">{c.name}</option>)}
@@ -1743,24 +1743,24 @@ export default function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
-                  <input 
+                  <input
                     name="password"
-                    type="password" 
+                    type="password"
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
-                <button 
+                <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                         className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Creating...
@@ -1770,8 +1770,8 @@ export default function App() {
                   )}
                 </button>
               </form>
-              
-              <div className="mt-8 pt-8 border-t border-white/5 text-center">
+
+              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 text-center">
                 <p className="text-sm text-gray-500">
                   Already have an account? <button onClick={() => { setIsSignupOpen(false); setIsLoginOpen(true); }} className="text-amber-500 font-semibold hover:underline">Sign In</button>
                 </p>
@@ -1789,40 +1789,40 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-8 rounded-3xl"
+              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-metallic-gold">Reset Password</h3>
-                <button onClick={() => setIsForgotOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
+                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Reset Password</h3>
+                <button onClick={() => setIsForgotOpen(false)} className="text-gray-500 hover:text-white shrink-0"><X /></button>
               </div>
-              
-              <p className="text-gray-400 text-sm mb-8">
+
+              <p className="text-gray-400 text-sm mb-6 md:mb-8">
                 Enter your registered Gmail address and we'll send you a link to reset your password.
               </p>
               
-              <form className="space-y-6" onSubmit={handleForgotPassword}>
+              <form className="space-y-4 md:space-y-6" onSubmit={handleForgotPassword}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
-                  <input 
+                  <input
                     name="email"
-                    type="email" 
+                    type="email"
                     placeholder="juan.delacruz@gmail.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                     pattern=".+@gmail\.com"
                   />
                 </div>
-                
-                <button 
+
+                <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
                         className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Sending Link...
@@ -1832,8 +1832,8 @@ export default function App() {
                   )}
                 </button>
               </form>
-              
-              <div className="mt-8 pt-8 border-t border-white/5 text-center">
+
+              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 text-center">
                 <button 
                   onClick={() => { setIsForgotOpen(false); setIsLoginOpen(true); }} 
                   className="text-sm text-gray-500 hover:text-amber-500 flex items-center justify-center gap-2 mx-auto transition-colors"
