@@ -390,6 +390,7 @@ export default function App() {
   useEffect(() => {
     if (scrollRef.current && stickToBottomRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      sendSeen();
     }
   }, [messages]);
   // Keep the chat pinned to the latest message when the user is at the bottom.
@@ -1914,6 +1915,9 @@ export default function App() {
                   ref={scrollRef}
                   className="h-full overflow-auto scrollbar-hide"
                   onScroll={async (e) => {
+                    const atBottom = e.currentTarget.scrollHeight - e.currentTarget.scrollTop - e.currentTarget.clientHeight < 24;
+                    stickToBottomRef.current = atBottom;
+                    if (atBottom) sendSeen();
                     if (e.currentTarget.scrollTop > 0 || isLoadingMore || !hasMore) return;
                     const oldest = messages[0]?.timestamp;
                     if (!oldest) return;
@@ -1948,7 +1952,7 @@ export default function App() {
                     }
                     const seenThis = isMe && otherLastRead && ts && activeRoom.startsWith('dm-') && index === lastMyIndex && new Date(ts) <= new Date(otherLastRead);
                     return (
-                      <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6`}>
+                      <div key={String((m as any).id ?? `${(m as any).timestamp}-${index}`)} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6`}>
                         <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
                           <span className={`text-[10px] font-bold text-gray-500 ${isMe ? 'mr-2 text-right' : 'ml-2 text-left'}`}>
                             {sname}
