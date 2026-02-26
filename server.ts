@@ -6,9 +6,13 @@ import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { GoogleGenAI } from "@google/genai";
+import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config();
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 let db = new Database("onemsu.db");
 try {
@@ -249,6 +253,35 @@ async function startServer() {
       res.status(500).json({ success: false, message: "Failed to save image" });
     }
   });
+  app.post("/api/assistant/chat", async (req, res) => {
+    const { message, campus, userName } = req.body || {};
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ success: false, message: "Missing message" });
+    }
+
+    if (!genAI) {
+      return res.json({
+        success: true,
+        reply: `Hi ${userName || "MSU student"}! I can help with campus info, enrollment, programs, and ONEMSU navigation. Add GEMINI_API_KEY to enable full AI responses.`
+      });
+    }
+
+    try {
+      const systemPrompt = `You are JARVIS AI for ONEMSU. Keep answers concise, practical, and student-friendly. If asked outside MSU context, still help politely. Campus context: ${campus || "MSU"}.`;
+      const response = await genAI.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: `${systemPrompt}
+
+User (${userName || "Student"}): ${message}`
+      });
+      const reply = response.text || "I can help with ONEMSU questions, campus details, and student services.";
+      res.json({ success: true, reply });
+    } catch (error) {
+      console.error("assistant chat error", error);
+      res.status(500).json({ success: false, message: "Assistant unavailable right now." });
+    }
+  });
+
   app.post("/api/auth/login", (req, res) => {
     const { email, password } = req.body;
     const user = db.prepare("SELECT * FROM users WHERE email = ? AND password = ?").get(email, password);

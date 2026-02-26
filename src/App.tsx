@@ -30,7 +30,11 @@ import {
   Settings,
   LogOut,
   User as UserIcon,
-  Plus
+  Plus,
+  Bot,
+  Mic,
+  Volume2,
+  Square
 } from 'lucide-react';
 
 // --- Types ---
@@ -51,6 +55,13 @@ interface Message {
   room_id: string;
   timestamp: string;
 }
+interface AssistantMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
 
 interface Campus {
   name: string;
@@ -203,7 +214,7 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 };
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'freedomwall' | 'feedbacks'>('home');
+  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'freedomwall' | 'feedbacks' | 'assistant'>('home');
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -242,6 +253,12 @@ export default function App() {
   const [freedomPosts, setFreedomPosts] = useState<{ id: number; user_id: number | null; alias: string; content: string; campus: string; image_url?: string; likes: number; reports: number; timestamp: string }[]>([]);
   const [freedomText, setFreedomText] = useState('');
   const [freedomImagePreview, setFreedomImagePreview] = useState<string | null>(null);
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
+  const [assistantInput, setAssistantInput] = useState('');
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantVoiceMode, setAssistantVoiceMode] = useState<'text' | 'voice'>('text');
+  const [assistantListening, setAssistantListening] = useState(false);
+  const speechRecognitionRef = useRef<any>(null);
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string } | null>(null);
   const [newGroup, setNewGroup] = useState<{ name: string; description: string; campus: string; logoPreview: string | null }>({ name: '', description: '', campus: '', logoPreview: null });
   const [dashboardCreateOpen, setDashboardCreateOpen] = useState(false);
@@ -512,11 +529,171 @@ export default function App() {
     localStorage.removeItem('onemsu_user');
   };
 
-  const toggleEnroll = (course: string) => {
-    setEnrolledCourses(prev => 
-      prev.includes(course) ? prev.filter(c => c !== course) : [...prev, course]
-    );
+  const speakAssistantText = (text: string) => {
+    if (typeof window === 'undefined' || assistantVoiceMode !== 'voice') return;
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1;
+    utter.pitch = 1;
+    window.speechSynthesis.speak(utter);
   };
+
+  const sendAssistantMessage = async () => {
+    const prompt = assistantInput.trim();
+    if (!prompt || assistantLoading) return;
+
+    const userMsg: AssistantMessage = {
+      id: `${Date.now()}-u`,
+      role: 'user',
+      content: prompt,
+      timestamp: new Date().toISOString(),
+    };
+    setAssistantMessages((prev) => [...prev, userMsg]);
+    setAssistantInput('');
+    setAssistantLoading(true);
+
+    try {
+      const res = await fetch('/api/assistant/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: prompt,
+          campus: user?.campus || 'MSU',
+          userName: user?.name || 'MSU Student'
+        })
+      });
+      const data = await safeJson(res);
+      const text = typeof data.reply === 'string' && data.reply.trim()
+        ? data.reply
+        : 'I can help with ONEMSU questions, campus info, enrollment steps, and student services.';
+
+      const aiMsg: AssistantMessage = {
+        id: `${Date.now()}-a`,
+        role: 'assistant',
+        content: text,
+        timestamp: new Date().toISOString(),
+      };
+      setAssistantMessages((prev) => [...prev, aiMsg]);
+      speakAssistantText(text);
+    } catch {
+      const fallback = 'I could not reach the AI service right now. Please try again in a few seconds.';
+      const aiMsg: AssistantMessage = {
+        id: `${Date.now()}-a`,
+        role: 'assistant',
+        content: fallback,
+        timestamp: new Date().toISOString(),
+      };
+      setAssistantMessages((prev) => [...prev, aiMsg]);
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  const toggleVoiceListening = () => {
+    if (assistantListening) {
+      speechRecognitionRef.current?.stop?.();
+      setAssistantListening(false);
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      alert('Voice recognition is not supported in this browser.');
+      return;
+    }
+    const recognition = new SR();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || '';
+      setAssistantInput(transcript);
+    };
+    recognition.onerror = () => setAssistantListening(false);
+    recognition.onend = () => setAssistantListening(false);
+    speechRecognitionRef.current = recognition;
+    setAssistantListening(true);
+    recognition.start();
+  };
+
+  const renderAssistant = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-5xl mx-auto">
+        <header className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-4xl font-bold text-white flex items-center gap-3"><Bot className="text-amber-400" /> JARVIS AI</h2>
+            <p className="text-gray-400 mt-2">Talk by text or voice. Choose if AI replies in text only or with voice.</p>
+          </div>
+          <button onClick={() => setView('dashboard')} className="text-gray-400 hover:text-white"><X /></button>
+        </header>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
+          <div className="flex flex-wrap gap-3 items-center justify-between mb-4">
+            <div className="text-sm text-gray-300">AI response mode</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAssistantVoiceMode('text')}
+                className={`px-3 py-2 rounded-lg text-sm border ${assistantVoiceMode === 'text' ? 'bg-amber-500 text-black border-amber-400' : 'bg-white/5 text-gray-300 border-white/10'}`}
+              >
+                Text only
+              </button>
+              <button
+                onClick={() => setAssistantVoiceMode('voice')}
+                className={`px-3 py-2 rounded-lg text-sm border flex items-center gap-2 ${assistantVoiceMode === 'voice' ? 'bg-amber-500 text-black border-amber-400' : 'bg-white/5 text-gray-300 border-white/10'}`}
+              >
+                <Volume2 size={14} /> Voice + Text
+              </button>
+            </div>
+          </div>
+
+          <div className="h-[420px] overflow-auto rounded-2xl border border-white/10 bg-black/20 p-4 space-y-3">
+            {assistantMessages.length === 0 && (
+              <div className="h-full flex items-center justify-center text-center text-gray-500">
+                <div>
+                  <Bot className="mx-auto mb-3 text-amber-400" />
+                  <p>Hi! I’m JARVIS AI. Ask about MSU campuses, programs, or student services.</p>
+                </div>
+              </div>
+            )}
+            {assistantMessages.map((m) => (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${m.role === 'user' ? 'bg-amber-500 text-black' : 'bg-white/10 text-white border border-white/10'}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {assistantLoading && <div className="text-xs text-gray-400">JARVIS is thinking…</div>}
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <input
+              value={assistantInput}
+              onChange={(e) => setAssistantInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') sendAssistantMessage(); }}
+              placeholder="Ask JARVIS anything about ONEMSU..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/40"
+            />
+            <button
+              onClick={toggleVoiceListening}
+              title={assistantListening ? 'Stop listening' : 'Use voice input'}
+              className={`px-4 rounded-xl border ${assistantListening ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' : 'bg-white/5 text-gray-300 border-white/10'}`}
+            >
+              {assistantListening ? <Square size={16} /> : <Mic size={16} />}
+            </button>
+            <button
+              onClick={sendAssistantMessage}
+              disabled={assistantLoading || !assistantInput.trim()}
+              className="px-5 rounded-xl bg-amber-500 text-black font-bold disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">Tip: click the mic, speak your question, then press Send.</p>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderDashboard = () => (
     <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
@@ -770,6 +947,7 @@ export default function App() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger') },
+                  { name: 'JARVIS AI', icon: <Bot size={14} />, action: () => setView('assistant') },
                   { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
                   { name: 'Grades', icon: <Sparkles size={14} /> },
                   { name: 'Finance', icon: <ShieldCheck size={14} /> },
@@ -2158,6 +2336,17 @@ export default function App() {
             transition={{ type: "spring", damping: 25, stiffness: 120 }}
           >
             {renderFreedomwall()}
+          </motion.div>
+        )}
+        {view === 'assistant' && (
+          <motion.div
+            key="assistant"
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -100 }}
+            transition={{ type: "spring", damping: 25, stiffness: 120 }}
+          >
+            {renderAssistant()}
           </motion.div>
         )}
         {view === 'feedbacks' && (
