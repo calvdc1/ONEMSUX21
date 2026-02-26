@@ -221,6 +221,7 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [showOpeningSplash, setShowOpeningSplash] = useState(true);
+  const [showLogoutSplash, setShowLogoutSplash] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('onemsu_auth') === 'true';
@@ -521,12 +522,16 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (showLogoutSplash) return;
+    setShowLogoutSplash(true);
+    await new Promise((resolve) => setTimeout(resolve, 2200));
     setIsLoggedIn(false);
     setUser(null);
     setView('home');
     localStorage.removeItem('onemsu_auth');
     localStorage.removeItem('onemsu_user');
+    setShowLogoutSplash(false);
   };
 
   const speakAssistantText = (text: string) => {
@@ -2204,6 +2209,32 @@ export default function App() {
       </div>
     </div>
   );
+
+  if (showLogoutSplash) {
+    return (
+      <div className="min-h-screen hero-metallic flex items-center justify-center px-6">
+        <div className="relative z-10 text-center flex flex-col items-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+            className="w-24 h-24 md:w-28 md:h-28 mb-6"
+          >
+            <Logo />
+          </motion.div>
+          <h2 className="text-3xl md:text-4xl font-bold text-metallic-gold">Signing out...</h2>
+          <p className="mt-3 text-gray-300">Securing your ONEMSU session</p>
+          <div className="mt-6 w-64 h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: '100%' }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+              className="h-full w-1/2 bg-gradient-to-r from-transparent via-amber-400 to-transparent"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showOpeningSplash) {
     return (
