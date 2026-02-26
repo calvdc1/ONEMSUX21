@@ -3664,7 +3664,7 @@ export default function App() {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-center"
             >
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
+              <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 mx-auto object-contain" />
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
