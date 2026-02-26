@@ -1196,7 +1196,7 @@ export default function App() {
     return (
     <div className="h-full w-full bg-[#0a0502] flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex justify-between items-center p-4 md:p-6 border-b border-white/5 shrink-0">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 md:p-6 border-b border-white/5 shrink-0 gap-2 md:gap-0">
         <div className="flex items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
@@ -1216,8 +1216,8 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden min-w-0">
         {/* Left Main Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-6 border-r border-white/5">
-          <div className="max-w-4xl">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-6 border-r border-white/5 w-full md:flex-1">
+          <div className="max-w-4xl mx-auto">
             <div className="card-gold p-8 rounded-3xl">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Sparkles className="text-amber-500" size={20} /> Confession Wall
@@ -1367,10 +1367,10 @@ export default function App() {
         </div>
 
         {/* Right Sidebar Panel */}
-        <div className="w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
-            <div className="card-gold p-4 rounded-2xl">
+        <div className="hidden lg:flex lg:w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4 flex-col">
+            <div className="card-gold p-4 rounded-2xl flex flex-col max-h-80">
               <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 overflow-y-auto scrollbar-hide flex-1 pr-1">
                 {[
                   { name: 'Messenger', icon: <MessageCircle size={12} />, action: () => setView('messenger'), unread: messengerUnread },
                   { name: 'Library', icon: <BookOpen size={12} />, action: () => window.open('https://openlibrary.org', '_blank') },
