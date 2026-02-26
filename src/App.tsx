@@ -175,45 +175,11 @@ const SPARKLES = [
 // --- Components ---
 
 const Logo = () => (
-  <svg viewBox="0 0 100 100" className="w-full h-full">
-    <defs>
-      <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#f9e7a3" />
-        <stop offset="50%" stopColor="#f5d36b" />
-        <stop offset="100%" stopColor="#b99740" />
-      </linearGradient>
-      <filter id="logo-glow">
-        <feGaussianBlur stdDeviation="1.5" result="blur" />
-        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-      </filter>
-    </defs>
-    {/* Outer Ring */}
-    <circle cx="50" cy="50" r="48" fill="none" stroke="url(#gold-grad)" strokeWidth="3" />
-    <circle cx="50" cy="50" r="44" fill="none" stroke="url(#gold-grad)" strokeWidth="1" strokeOpacity="0.5" />
-    
-    {/* Inner Circle Background */}
-    <circle cx="50" cy="50" r="40" fill="#0a0502" />
-    
-    {/* Torch / Flame (Simplified SVG representation of the logo) */}
-    <path d="M50 20 L55 35 L45 35 Z" fill="#f59e0b" filter="url(#logo-glow)" />
-    <rect x="48" y="35" width="4" height="15" fill="url(#gold-grad)" />
-    
-    {/* Text Arc */}
-    <text 
-      x="50" y="65" 
-      textAnchor="middle" 
-      fill="url(#gold-grad)" 
-      fontSize="10" 
-      fontWeight="900" 
-      fontFamily="serif"
-      filter="url(#logo-glow)"
-    >
-      ONEMSU
-    </text>
-    
-    {/* Decorative Elements */}
-    <circle cx="50" cy="50" r="35" fill="none" stroke="url(#gold-grad)" strokeWidth="0.5" strokeDasharray="2 2" />
-  </svg>
+  <img
+    src="https://cdn.builder.io/api/v1/image/assets%2F23368e21ff6f469fbe3b6cd7a12f765a%2F08f3caf3e05b4d4eaa2bdece65fb7125?format=webp&width=800&height=1200"
+    alt="ONEMSU Logo"
+    className="w-full h-full object-contain"
+  />
 );
 
 const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, className?: string }) => {
@@ -365,7 +331,7 @@ export default function App() {
       const timer = setTimeout(() => {
         setShowSplash(false);
         localStorage.setItem('onemsu_splash_shown', 'true');
-      }, 3200);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [showSplash]);
@@ -1683,8 +1649,41 @@ export default function App() {
                   )}
                 </button>
               </form>
-              
-              <div className="mt-8 pt-8 border-t border-white/5 text-center">
+
+              <div className="mt-8 pt-8 border-t border-white/5">
+                <h4 className="text-sm font-semibold text-gray-400 mb-4">Download ONEMSU App</h4>
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                  <a
+                    href="#"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M3 5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5zm16 0H5v14h14V5z"/>
+                    </svg>
+                    <span className="text-xs text-gray-300">Windows</span>
+                  </a>
+                  <a
+                    href="#"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.38-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.08 2.29.74 3.08.8.905-.15 1.75-.72 2.95-.8 4.77.37 5.54 7.04 2.97 11.97z"/>
+                    </svg>
+                    <span className="text-xs text-gray-300">iOS</span>
+                  </a>
+                  <a
+                    href="#"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                    </svg>
+                    <span className="text-xs text-gray-300">Android</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="text-center">
                 <p className="text-sm text-gray-500">
                   Don't have an account? <button onClick={() => { setIsLoginOpen(false); setIsSignupOpen(true); }} className="text-amber-500 font-semibold hover:underline">Register here</button>
                 </p>
@@ -3664,10 +3663,7 @@ export default function App() {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="w-32 h-32"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-              >
+              <motion.div>
                 <Logo />
               </motion.div>
               <motion.div
