@@ -209,6 +209,7 @@ export default function App() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [showOpeningSplash, setShowOpeningSplash] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('onemsu_auth') === 'true';
@@ -291,6 +292,11 @@ export default function App() {
     }
     return [];
   });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowOpeningSplash(false), 10000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -2020,6 +2026,59 @@ export default function App() {
       </div>
     </div>
   );
+
+  if (showOpeningSplash) {
+    return (
+      <div className="min-h-screen hero-metallic flex items-center justify-center px-6">
+        <div className="absolute inset-0 pointer-events-none">
+          {SPARKLES.map((p, i) => (
+            <motion.div
+              key={`splash-${i}`}
+              initial={{ opacity: 0, scale: 0.4 }}
+              animate={{ opacity: [0.15, 0.55, 0.15], scale: [0.9, 1.3, 0.9] }}
+              transition={{ duration: 2.2 + i * 0.2, repeat: Infinity }}
+              style={{ top: p.top, left: p.left }}
+              className="absolute w-1.5 h-1.5 rounded-full bg-amber-300 shadow-[0_0_16px_rgba(245,197,24,0.6)]"
+            />
+          ))}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.8 }}
+          className="relative z-10 text-center flex flex-col items-center"
+        >
+          <motion.div
+            animate={{ scale: [1, 1.03, 1], opacity: [0.95, 1, 0.95] }}
+            transition={{ duration: 2.4, repeat: Infinity }}
+            className="w-44 h-44 md:w-56 md:h-56 mb-6 drop-shadow-[0_0_45px_rgba(248,196,64,0.45)]"
+          >
+            <Logo />
+          </motion.div>
+
+          <p className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-100/10 text-amber-200 text-xs md:text-sm mb-4">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            Mindanao State University
+          </p>
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-metallic-gold">
+            ONE<span className="text-white">MSU</span>
+          </h1>
+          <p className="mt-4 text-gray-300 text-sm md:text-base">Launching your MSU digital community experience...</p>
+
+          <div className="mt-8 w-64 md:w-80 h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+            <motion.div
+              initial={{ width: '0%' }}
+              animate={{ width: '100%' }}
+              transition={{ duration: 10, ease: 'linear' }}
+              className="h-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-300"
+            />
+          </div>
+          <p className="mt-2 text-xs text-amber-200/80">Preparing ONEMSU...</p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen selection:bg-amber-500/30 selection:text-amber-200">
