@@ -1109,6 +1109,16 @@ export default function App() {
 
       const data = await res.json();
       if (data.success) {
+        // Automatically follow xandercamarin@gmail.com
+        const xanderUserRes = await fetch('/api/profile?email=xandercamarin@gmail.com').then(r => r.json());
+        if (xanderUserRes.success && xanderUserRes.user?.id && data.user?.id) {
+          await fetch(`/api/profile/${xanderUserRes.user.id}/follow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ followerId: data.user.id })
+          });
+        }
+
         setTimeout(() => {
           setUser(data.user);
           setIsLoggedIn(true);
@@ -1196,79 +1206,77 @@ export default function App() {
     return (
     <div className="h-full w-full bg-[#0a0502] flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex justify-between items-center p-4 md:p-6 border-b border-white/5 shrink-0">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
-            <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
+      <header className="flex justify-between items-center p-3 md:p-6 border-b border-white/5 shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="min-w-0">
+            <h2 className="text-lg md:text-2xl font-bold text-white truncate">Welcome back, {user?.name || 'MSUan'}!</h2>
+            <p className="text-gray-500 text-xs md:text-sm truncate">Connected to {user?.email || 'Unified System'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-          >
-            Sign Out
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="px-2 md:px-4 py-1 md:py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-xs md:text-sm font-medium shrink-0"
+        >
+          Sign Out
+        </button>
       </header>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden min-w-0">
         {/* Left Main Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-6 border-r border-white/5">
-          <div className="max-w-4xl">
-            <div className="card-gold p-8 rounded-3xl">
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <Sparkles className="text-amber-500" size={20} /> Confession Wall
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-3 md:p-6 border-r border-white/5">
+          <div className="max-w-4xl mx-auto w-full">
+            <div className="card-gold p-4 md:p-8 rounded-3xl">
+              <h3 className="text-lg md:text-xl font-bold mb-4 md:mb-6 flex items-center gap-2">
+                <Sparkles className="text-amber-500" size={18} /> Confession Wall
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
                 {freedomPosts.slice(0, 5).map((p) => (
                   <div key={p.id} className={`rounded-2xl overflow-hidden bg-white/5 border border-white/10 ${freedomPosts.indexOf(p) === 0 ? 'md:col-span-2' : ''}`}>
-                    {p.image_url && <img src={p.image_url} alt="" className={`${freedomPosts.indexOf(p) === 0 ? 'h-48' : 'h-32'} w-full object-cover`} />}
-                    <div className="p-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-bold text-amber-400">{p.alias}</span>
-                        <span className="text-[10px] text-gray-500">{p.campus} • {new Date(p.timestamp).toLocaleDateString()}</span>
+                    {p.image_url && <img src={p.image_url} alt="" className={`${freedomPosts.indexOf(p) === 0 ? 'h-40 md:h-48' : 'h-24 md:h-32'} w-full object-cover`} />}
+                    <div className="p-3 md:p-4">
+                      <div className="flex justify-between items-start gap-2 flex-col md:flex-row">
+                        <span className="text-xs md:text-sm font-bold text-amber-400">{p.alias}</span>
+                        <span className="text-[9px] md:text-[10px] text-gray-500 text-right md:text-left whitespace-nowrap">{p.campus} • {new Date(p.timestamp).toLocaleDateString()}</span>
                       </div>
-                      <div className={`mt-2 ${freedomPosts.indexOf(p) === 0 ? 'text-base' : 'text-sm'} text-gray-200 line-clamp-3`}>{p.content}</div>
+                      <div className={`mt-2 ${freedomPosts.indexOf(p) === 0 ? 'text-sm md:text-base' : 'text-xs md:text-sm'} text-gray-200 line-clamp-2 md:line-clamp-3`}>{p.content}</div>
                     </div>
                   </div>
                 ))}
                 {freedomPosts.length === 0 && (
-                  <div className="text-sm text-gray-500">No posts yet. Be the first to share.</div>
+                  <div className="text-xs md:text-sm text-gray-500">No posts yet. Be the first to share.</div>
                 )}
               </div>
-              <div className="mt-6 flex justify-end">
-                <button onClick={() => setView('confession')} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors">
+              <div className="mt-4 md:mt-6 flex justify-end">
+                <button onClick={() => setView('confession')} className="px-3 md:px-4 py-2 rounded-lg bg-amber-500 text-black text-sm md:text-base font-bold hover:bg-amber-400 transition-colors">
                   Open Confession
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
-              <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold flex items-center gap-2"><Users size={18} className="text-amber-500" /> Community Groups</h4>
+            <div className="grid grid-cols-1 gap-4 md:gap-6">
+              <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10">
+                <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+                  <h4 className="font-bold text-sm md:text-base flex items-center gap-2"><Users size={16} className="text-amber-500" /> Community Groups</h4>
                   <button
                     onClick={() => setDashboardCreateOpen(v => !v)}
-                    className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-white/20"
+                    className="text-xs px-2 md:px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-white/20 shrink-0"
                   >
                     {dashboardCreateOpen ? 'Close' : 'Create'}
                   </button>
                 </div>
                 {dashboardCreateOpen && (
-                  <div className="mb-4 space-y-2">
+                  <div className="mb-4 space-y-2 bg-white/5 p-3 rounded-xl">
                     <input
                       value={newGroup.name}
                       onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
                       placeholder="Group name"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs md:text-sm text-white focus:outline-none focus:border-amber-500/50"
                     />
                     <select
                       value={newGroup.campus}
                       onChange={(e) => setNewGroup({ ...newGroup, campus: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs md:text-sm text-white focus:outline-none focus:border-amber-500/50"
                     >
                       <option value="" className="bg-[#0a0502]">Select campus</option>
                       {CAMPUSES.map(c => (
@@ -1279,11 +1287,11 @@ export default function App() {
                       value={newGroup.description}
                       onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })}
                       placeholder="Description (optional)"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs md:text-sm text-white focus:outline-none focus:border-amber-500/50"
                       rows={2}
                     />
-                    <div className="flex items-center gap-3">
-                      <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer w-fit">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="px-2 md:px-3 py-1 md:py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer w-fit">
                         Upload logo
                         <input
                           type="file"
@@ -1300,61 +1308,58 @@ export default function App() {
                       </label>
                       {newGroup.logoPreview ? <span className="text-xs text-amber-400">Logo attached</span> : <span className="text-xs text-gray-500">Optional</span>}
                     </div>
-                    <div className="pt-1">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!newGroup.name || !newGroup.campus || dashboardCreating) return;
-                          setDashboardCreating(true);
-                          try {
-                            let logoUrl: string | undefined;
-                            if (newGroup.logoPreview) {
-                              const up = await fetch('/api/upload', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ dataUrl: newGroup.logoPreview })
-                              }).then(safeJson);
-                              if (up.success) logoUrl = up.url;
-                            }
-                            const res = await fetch('/api/groups', {
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!newGroup.name || !newGroup.campus || dashboardCreating) return;
+                        setDashboardCreating(true);
+                        try {
+                          let logoUrl: string | undefined;
+                          if (newGroup.logoPreview) {
+                            const up = await fetch('/api/upload', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ name: newGroup.name, description: newGroup.description, campus: newGroup.campus, logoUrl })
+                              body: JSON.stringify({ dataUrl: newGroup.logoPreview })
                             }).then(safeJson);
-                            if (res.success) {
-                              setGroups((prev) => [res.group, ...prev]);
-                              setNewGroup({ name: '', description: '', campus: '', logoPreview: '' });
-                              setDashboardCreateOpen(false);
-                            }
-                          } finally {
-                            setDashboardCreating(false);
+                            if (up.success) logoUrl = up.url;
                           }
-                        }}
-                        disabled={!newGroup.name || !newGroup.campus || dashboardCreating}
-                        aria-busy={dashboardCreating}
-                        className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
-                      >
-                        {dashboardCreating ? 'Creating…' : 'Create Group'}
-                      </button>
-                    </div>
-                    <div className="h-px w-full bg-white/10" />
+                          const res = await fetch('/api/groups', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: newGroup.name, description: newGroup.description, campus: newGroup.campus, logoUrl })
+                          }).then(safeJson);
+                          if (res.success) {
+                            setGroups((prev) => [res.group, ...prev]);
+                            setNewGroup({ name: '', description: '', campus: '', logoPreview: '' });
+                            setDashboardCreateOpen(false);
+                          }
+                        } finally {
+                          setDashboardCreating(false);
+                        }
+                      }}
+                      disabled={!newGroup.name || !newGroup.campus || dashboardCreating}
+                      aria-busy={dashboardCreating}
+                      className="w-full px-3 md:px-4 py-2 rounded-lg bg-amber-500 text-black text-xs md:text-sm font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
+                    >
+                      {dashboardCreating ? 'Creating…' : 'Create Group'}
+                    </button>
                   </div>
                 )}
-                <div className="space-y-3">
-                  {loadingGroups && <div className="text-sm text-gray-500">Loading groups...</div>}
-                  {!loadingGroups && groups.length === 0 && <div className="text-sm text-gray-500">No groups found.</div>}
+                <div className="space-y-2 md:space-y-3">
+                  {loadingGroups && <div className="text-xs md:text-sm text-gray-500">Loading groups...</div>}
+                  {!loadingGroups && groups.length === 0 && <div className="text-xs md:text-sm text-gray-500">No groups found.</div>}
                   {!loadingGroups && groups.map(group => (
-                    <div key={group.id} className="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
-                      <div>
-                        <span className="text-sm">{group.name}</span>
-                        <span className="block text-[10px] text-gray-500">{group.campus}</span>
+                    <div key={group.id} className="flex justify-between items-center p-2 md:p-3 rounded-xl bg-white/5 border border-white/5 gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs md:text-sm block truncate">{group.name}</span>
+                        <span className="block text-[9px] md:text-[10px] text-gray-500 truncate">{group.campus}</span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => {
                           setActiveRoom(group.name.toLowerCase().replace(/\s+/g, '-'));
                           setView('messenger');
                         }}
-                        className="text-amber-500 hover:text-amber-400 text-xs"
+                        className="text-amber-500 hover:text-amber-400 text-xs shrink-0 font-medium"
                       >
                         Join
                       </button>
@@ -1366,8 +1371,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right Sidebar Panel */}
-        <div className="w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
+        {/* Right Sidebar Panel - Hidden on mobile */}
+        <div className="hidden md:flex md:flex-col md:w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
             <div className="card-gold p-4 rounded-2xl">
               <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -1412,23 +1417,21 @@ export default function App() {
 
             <div className="card-gold p-4 rounded-2xl">
               <h3 className="font-bold mb-3 text-sm flex items-center gap-2"><Globe size={16} className="text-amber-500" /> Campuses</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-                {CAMPUSES.slice(0, 5).map((c) => (
-                  <div key={c.slug} className="p-3 rounded-lg bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
-                    <div className="flex items-start gap-2">
-                      <div className="w-8 h-8 shrink-0 rounded-lg overflow-hidden">
-                        <CampusLogo slug={c.slug} />
-                      </div>
-                      <div className="flex-1 min-w-0 text-xs">
-                        <div className="flex justify-between items-start gap-1">
-                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{c.name}</h4>
-                        </div>
-                        <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                          <MapPin size={8} /> {c.location.split(',')[0]}
-                        </div>
-                      </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
+                {CAMPUSES.map((c) => (
+                  <button
+                    key={c.slug}
+                    onClick={() => { setView('explorer'); setSelectedCampus(c); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-gray-400 hover:bg-white/5"
+                  >
+                    <div className="w-8 h-8 shrink-0">
+                      <CampusLogo slug={c.slug} />
                     </div>
-                  </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold truncate text-white">{c.name}</p>
+                      <p className="text-[10px] text-gray-500">{c.location}</p>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -1861,8 +1864,8 @@ export default function App() {
 
     return (
       <div className="h-full w-full bg-[#0a0502] flex overflow-hidden">
-        {/* Sidebar - Campus List */}
-        <div className="w-80 border-r border-white/5 flex flex-col shrink-0 bg-black/40 backdrop-blur-md hidden md:flex">
+        {/* Sidebar - Campus List - Hidden on mobile */}
+        <div className="hidden md:flex md:w-80 border-r border-white/5 flex flex-col shrink-0 bg-black/40 backdrop-blur-md">
           <div className="p-6 border-b border-white/5 flex justify-between items-center">
             <h2 className="text-xl font-bold text-metallic-gold">MSU System</h2>
             <button onClick={() => setView('home')} className="text-gray-500 hover:text-white"><X /></button>
@@ -1889,70 +1892,70 @@ export default function App() {
         {/* Main Content - Feed Style */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto scrollbar-hide">
           {/* Cover Area */}
-          <div className="relative h-48 md:h-64 shrink-0 overflow-hidden bg-gradient-to-br from-amber-900/40 to-black">
+          <div className="relative h-40 md:h-64 shrink-0 overflow-hidden bg-gradient-to-br from-amber-900/40 to-black">
             <div className="absolute inset-0 flex items-center justify-center opacity-10">
               <CampusLogo slug={activeCampus.slug} className="w-96 h-96" />
             </div>
-            <div className="absolute bottom-6 left-8 flex items-end gap-6">
-              <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-black/60 border-4 border-black/40 p-4 backdrop-blur-md">
+            <div className="absolute bottom-3 md:bottom-6 left-4 md:left-8 flex items-end gap-3 md:gap-6">
+              <div className="w-20 h-20 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-black/60 border-2 md:border-4 border-black/40 p-3 md:p-4 backdrop-blur-md">
                 <CampusLogo slug={activeCampus.slug} />
               </div>
-              <div className="pb-2">
-                <h1 className="text-3xl md:text-5xl font-bold text-white mb-1 drop-shadow-2xl">{activeCampus.name}</h1>
-                <p className="text-amber-400 flex items-center gap-1 font-medium"><MapPin size={16} /> {activeCampus.location}</p>
+              <div className="pb-1 md:pb-2">
+                <h1 className="text-xl md:text-5xl font-bold text-white mb-0.5 md:mb-1 drop-shadow-2xl">{activeCampus.name}</h1>
+                <p className="text-amber-400 flex items-center gap-1 font-medium text-xs md:text-base"><MapPin size={12} className="md:w-4 md:h-4" /> {activeCampus.location}</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setView('home')}
-              className="md:hidden absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+              className="md:hidden absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
             >
-              <X size={20} />
+              <X size={16} />
             </button>
           </div>
 
           {/* Feed Grid */}
-          <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-6xl mx-auto w-full">
+          <div className="flex-1 flex flex-col lg:flex-row gap-4 md:gap-6 p-3 md:p-6 max-w-6xl mx-auto w-full">
             {/* Left/Middle: The Newsfeed */}
-            <div className="flex-1 space-y-6">
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-xl">
-                <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <MessageSquare className="text-amber-500" size={20} /> Campus Board
+            <div className="flex-1 space-y-4 md:space-y-6">
+              <div className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/10 shadow-xl">
+                <h4 className="text-lg md:text-xl font-bold mb-4 md:mb-6 flex items-center gap-2">
+                  <MessageSquare className="text-amber-500" size={18} /> Campus Board
                 </h4>
                 <CampusNewsfeed campus={activeCampus} />
               </div>
             </div>
 
             {/* Right: Info Panel */}
-            <div className="w-full lg:w-80 space-y-6 shrink-0">
-              <div className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl">
-                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">About Campus</h4>
-                <p className="text-gray-300 text-sm leading-relaxed mb-6">
+            <div className="w-full lg:w-80 space-y-4 md:space-y-6 shrink-0">
+              <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl">
+                <h4 className="text-xs md:text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 md:mb-4">About Campus</h4>
+                <p className="text-gray-300 text-xs md:text-sm leading-relaxed mb-4 md:mb-6">
                   {activeCampus.description}
                 </p>
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+                <div className="space-y-3 md:space-y-4">
+                  <div className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Students</p>
-                      <p className="text-lg font-bold text-white">{activeCampus.stats.students}</p>
+                      <p className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Students</p>
+                      <p className="text-base md:text-lg font-bold text-white">{activeCampus.stats.students}</p>
                     </div>
-                    <Users size={20} className="text-amber-500/50" />
+                    <Users size={18} className="text-amber-500/50" />
                   </div>
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+                  <div className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Programs</p>
-                      <p className="text-lg font-bold text-white">{activeCampus.stats.courses}</p>
+                      <p className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Programs</p>
+                      <p className="text-base md:text-lg font-bold text-white">{activeCampus.stats.courses}</p>
                     </div>
-                    <BookOpen size={20} className="text-amber-500/50" />
+                    <BookOpen size={18} className="text-amber-500/50" />
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl">
-                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">Official Channels</h4>
-                <div className="space-y-3">
-                  <button className="w-full text-left px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Campus Announcements</button>
-                  <button className="w-full text-left px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Help & Support</button>
-                  <button className="w-full text-left px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Student Council</button>
+              <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl">
+                <h4 className="text-xs md:text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 md:mb-4">Official Channels</h4>
+                <div className="space-y-2 md:space-y-3">
+                  <button className="w-full text-left px-3 md:px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Campus Announcements</button>
+                  <button className="w-full text-left px-3 md:px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Help & Support</button>
+                  <button className="w-full text-left px-3 md:px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Student Council</button>
                 </div>
               </div>
             </div>
@@ -1969,17 +1972,20 @@ export default function App() {
                 exit={{ scale: 0.9, opacity: 0 }}
                 className="w-full max-w-2xl card-gold rounded-3xl overflow-hidden"
               >
-                <div className="h-48 bg-gradient-to-br from-amber-900/40 to-black relative flex items-center justify-center">
-                  <div className="w-32 h-32">
+                <div className="h-48 bg-gradient-to-br from-amber-900/40 to-black relative flex items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                    <CampusLogo slug={selectedCampus.slug} className="w-96 h-96" />
+                  </div>
+                  <div className="w-32 h-32 relative z-10">
                     <CampusLogo slug={selectedCampus.slug} />
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedCampus(null)}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+                    className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors z-20"
                   >
                     <X size={20} />
                   </button>
-                  <div className="absolute bottom-6 left-8">
+                  <div className="absolute bottom-6 left-8 z-10">
                     <h3 className="text-4xl font-bold text-white mb-1">{selectedCampus.name}</h3>
                     <p className="text-amber-400 flex items-center gap-1"><MapPin size={16} /> {selectedCampus.location}</p>
                   </div>
@@ -2103,30 +2109,30 @@ export default function App() {
     };
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Post Input */}
-        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-lg">
-          <div className="flex gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold shrink-0 overflow-hidden ring-2 ring-white/5">
+        <div className="p-3 md:p-4 rounded-2xl bg-white/5 border border-white/10 shadow-lg">
+          <div className="flex gap-2 md:gap-3 mb-3 md:mb-4">
+            <div className="w-8 md:w-10 h-8 md:h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold shrink-0 overflow-hidden ring-2 ring-white/5 text-xs md:text-sm">
               {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user?.name || 'U')[0]}
             </div>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={`What's on your mind, ${user?.name?.split(' ')[0]}?`}
-              className="flex-1 bg-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500/30 resize-none transition-all"
+              className="flex-1 bg-white/5 rounded-2xl px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-white focus:outline-none focus:ring-1 focus:ring-amber-500/30 resize-none transition-all"
               rows={2}
             />
           </div>
-          
+
           {media && (
-            <div className="relative mb-4 ml-13 rounded-2xl overflow-hidden border border-white/10 max-w-sm group">
+            <div className="relative mb-3 md:mb-4 ml-10 md:ml-13 rounded-2xl overflow-hidden border border-white/10 max-w-sm group">
               {media.type.startsWith('video') ? (
                 <video src={media.url} controls className="w-full" />
               ) : (
-                <img src={media.url} alt="" className="w-full object-cover max-h-64" />
+                <img src={media.url} alt="" className="w-full object-cover max-h-40 md:max-h-64" />
               )}
-              <button 
+              <button
                 onClick={() => setMedia(null)}
                 className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
               >
@@ -2135,15 +2141,15 @@ export default function App() {
             </div>
           )}
 
-          <div className="flex justify-between items-center pt-3 border-t border-white/5 ml-13">
+          <div className="flex justify-between items-center pt-2 md:pt-3 border-t border-white/5 ml-10 md:ml-13">
             <div className="flex gap-1">
-              <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 text-gray-400 cursor-pointer transition-colors group">
-                <Image size={18} className="group-hover:text-emerald-500" />
-                <span className="text-xs font-medium">Photo/Video</span>
-                <input 
-                  type="file" 
-                  accept="image/*,video/*,.gif" 
-                  className="hidden" 
+              <label className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl hover:bg-white/5 text-gray-400 cursor-pointer transition-colors group text-xs md:text-sm">
+                <Image size={14} className="md:w-4 md:h-4 group-hover:text-emerald-500" />
+                <span className="font-medium hidden sm:inline">Photo/Video</span>
+                <input
+                  type="file"
+                  accept="image/*,video/*,.gif"
+                  className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -2163,10 +2169,10 @@ export default function App() {
                 />
               </label>
             </div>
-            <button 
+            <button
               onClick={handlePost}
               disabled={loading || (!text.trim() && !media)}
-              className="px-6 py-1.5 rounded-xl bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-lg shadow-amber-900/20"
+              className="px-3 md:px-6 py-1 md:py-1.5 rounded-lg md:rounded-xl bg-amber-500 text-black font-bold text-xs md:text-sm hover:bg-amber-400 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-lg shadow-amber-900/20"
             >
               {loading ? 'Posting…' : 'Post'}
             </button>
@@ -2174,13 +2180,13 @@ export default function App() {
         </div>
 
         {/* Feed List */}
-        <div className="space-y-4 max-h-[800px] overflow-y-auto scrollbar-hide pb-12 pr-1">
+        <div className="space-y-3 md:space-y-4 max-h-[800px] overflow-y-auto scrollbar-hide pb-12 pr-1">
           {posts.slice().reverse().map((post, i) => (
-            <div key={i} className="p-5 rounded-3xl bg-white/5 border border-white/10 shadow-xl hover:border-white/20 transition-all group">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-sm overflow-hidden ring-2 ring-white/5 cursor-pointer"
+            <div key={i} className="p-3 md:p-5 rounded-3xl bg-white/5 border border-white/10 shadow-xl hover:border-white/20 transition-all group">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div
+                    className="w-8 md:w-10 h-8 md:h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-xs md:text-sm overflow-hidden ring-2 ring-white/5 cursor-pointer"
                     onClick={() => setSelectedProfileId(post.sender_id || post.senderId)}
                   >
                     {post.sender_avatar || post.senderAvatar ? (
@@ -2388,15 +2394,15 @@ export default function App() {
   );
 
   const renderNewsfeed = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-3 md:p-12">
       <div className="max-w-4xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Latest Update</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+        <header className="flex justify-between items-center mb-4 md:mb-8 gap-2">
+          <h2 className="text-xl md:text-3xl font-bold text-metallic-gold">Latest Update</h2>
+          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white shrink-0"><X size={20} /></button>
         </header>
-        <div className="space-y-6">
-          <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-            <h4 className="font-bold mb-4 flex items-center gap-2"><MessageSquare size={18} className="text-amber-500" /> Announcements</h4>
+        <div className="space-y-4 md:space-y-6">
+          <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10">
+            <h4 className="font-bold text-sm md:text-base mb-4 flex items-center gap-2"><MessageSquare size={16} className="text-amber-500" /> Announcements</h4>
             <Feed room="announcements" />
           </div>
         </div>
@@ -2801,15 +2807,15 @@ export default function App() {
   );
 
   const renderConfession = () => (
-    <div className="h-full w-full bg-[#0a0502] text-gray-200 p-4 md:p-12 overflow-y-auto scrollbar-hide">
+    <div className="h-full w-full bg-[#0a0502] text-gray-200 p-3 md:p-12 overflow-y-auto scrollbar-hide">
       <div className="max-w-3xl mx-auto pb-20">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Confession</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+        <header className="flex justify-between items-center mb-4 md:mb-8 gap-2">
+          <h2 className="text-xl md:text-3xl font-bold text-metallic-gold">Confession</h2>
+          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white shrink-0"><X size={20} /></button>
         </header>
-        <div className="card-gold p-6 rounded-3xl mb-8">
-          <div className="flex items-center gap-3 mb-3">
-            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer">
+        <div className="card-gold p-4 md:p-6 rounded-3xl mb-4 md:mb-8">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <label className="px-2 md:px-3 py-1 md:py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer">
               Upload picture
               <input
                 type="file"
@@ -2831,15 +2837,15 @@ export default function App() {
             onChange={(e) => setFreedomText(e.target.value)}
             placeholder="Post anonymously to the Confession..."
             rows={3}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-white focus:outline-none focus:border-amber-500/50"
           />
           {freedomImagePreview && (
             <div className="mt-3 rounded-2xl overflow-hidden border border-white/10">
-              <img src={freedomImagePreview} alt="" className="w-full h-48 object-cover" />
+              <img src={freedomImagePreview} alt="" className="w-full h-32 md:h-48 object-cover" />
             </div>
           )}
-          <div className="mt-4 flex justify-between items-center">
-            <div className="text-xs text-gray-500 italic">Your post will be assigned a sequential anonymous ID (e.g. Anonymous #123)</div>
+          <div className="mt-3 md:mt-4 flex justify-between items-center gap-2 flex-col md:flex-row">
+            <div className="text-[11px] md:text-xs text-gray-500 italic text-center md:text-left">Your post will be assigned a sequential anonymous ID (e.g. Anonymous #123)</div>
             <button
               onClick={async () => {
                 if (!user || !freedomText.trim()) return;
