@@ -1374,8 +1374,8 @@ export default function App() {
                 {[
                   { name: 'Messenger', icon: <MessageCircle size={12} />, action: () => setView('messenger'), unread: messengerUnread },
                   { name: 'Library', icon: <BookOpen size={12} />, action: () => window.open('https://openlibrary.org', '_blank') },
-                  { name: 'Grades', icon: <Sparkles size={12} /> },
-                  { name: 'Finance', icon: <ShieldCheck size={12} /> },
+                  { name: 'Grades', icon: <Sparkles size={12} />, action: () => alert('Grades feature coming soon') },
+                  { name: 'Finance', icon: <ShieldCheck size={12} />, action: () => alert('Finance portal coming soon') },
                   { name: 'Discord', icon: <ExternalLink size={12} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
                   { name: 'Profile', icon: <Users size={12} />, action: () => setView('profile') },
                   { name: 'Updates', icon: <MessageSquare size={12} />, action: () => setView('newsfeed'), unread: updatesUnread },
@@ -1872,14 +1872,18 @@ export default function App() {
               <button
                 key={campus.slug}
                 onClick={() => setSelectedCampus(campus)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeCampus.slug === campus.slug ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'}`}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+                  activeCampus.slug === campus.slug
+                    ? 'bg-amber-500 text-black border border-amber-500'
+                    : 'text-gray-400 hover:bg-white/5 border border-white/10 hover:text-white'
+                }`}
               >
                 <div className="w-8 h-8 shrink-0">
                   <CampusLogo slug={campus.slug} />
                 </div>
-                <div className="text-left">
+                <div className="text-left flex-1">
                   <p className="text-sm font-bold truncate">{campus.name}</p>
-                  <p className={`text-[10px] ${activeCampus.slug === campus.slug ? 'text-black/60' : 'text-gray-500'}`}>{campus.location}</p>
+                  <p className={`text-[10px] ${activeCampus.slug === campus.slug ? 'text-black/70' : 'text-gray-500'}`}>{campus.location}</p>
                 </div>
               </button>
             ))}
