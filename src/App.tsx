@@ -1412,23 +1412,21 @@ export default function App() {
 
             <div className="card-gold p-4 rounded-2xl">
               <h3 className="font-bold mb-3 text-sm flex items-center gap-2"><Globe size={16} className="text-amber-500" /> Campuses</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-                {CAMPUSES.slice(0, 5).map((c) => (
-                  <div key={c.slug} className="p-3 rounded-lg bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
-                    <div className="flex items-start gap-2">
-                      <div className="w-8 h-8 shrink-0 rounded-lg overflow-hidden">
-                        <CampusLogo slug={c.slug} />
-                      </div>
-                      <div className="flex-1 min-w-0 text-xs">
-                        <div className="flex justify-between items-start gap-1">
-                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{c.name}</h4>
-                        </div>
-                        <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                          <MapPin size={8} /> {c.location.split(',')[0]}
-                        </div>
-                      </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-hide">
+                {CAMPUSES.map((c) => (
+                  <button
+                    key={c.slug}
+                    onClick={() => { setView('explorer'); setSelectedCampus(c); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl transition-all text-gray-400 hover:bg-white/5"
+                  >
+                    <div className="w-8 h-8 shrink-0">
+                      <CampusLogo slug={c.slug} />
                     </div>
-                  </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold truncate text-white">{c.name}</p>
+                      <p className="text-[10px] text-gray-500">{c.location}</p>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
