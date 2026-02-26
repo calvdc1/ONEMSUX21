@@ -253,6 +253,7 @@ export default function App() {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isLogoutLoading, setIsLogoutLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('onemsu_auth') === 'true';
@@ -365,7 +366,7 @@ export default function App() {
       const timer = setTimeout(() => {
         setShowSplash(false);
         localStorage.setItem('onemsu_splash_shown', 'true');
-      }, 3200);
+      }, 8000);
       return () => clearTimeout(timer);
     }
   }, [showSplash]);
@@ -1125,11 +1126,15 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser(null);
-    setView('home');
-    localStorage.removeItem('onemsu_auth');
-    localStorage.removeItem('onemsu_user');
+    setIsLogoutLoading(true);
+    setTimeout(() => {
+      setIsLoggedIn(false);
+      setUser(null);
+      setView('home');
+      localStorage.removeItem('onemsu_auth');
+      localStorage.removeItem('onemsu_user');
+      setIsLogoutLoading(false);
+    }, 10000);
   };
 
   const handleForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
@@ -1206,9 +1211,10 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleLogout}
-            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+            disabled={isLogoutLoading}
+            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign Out
+            {isLogoutLoading ? 'Signing out...' : 'Sign Out'}
           </button>
         </div>
       </header>
@@ -1367,7 +1373,7 @@ export default function App() {
         </div>
 
         {/* Right Sidebar Panel */}
-        <div className="w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
+        <div className="hidden md:flex md:flex-col w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
             <div className="card-gold p-4 rounded-2xl">
               <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -1500,9 +1506,7 @@ export default function App() {
       {/* Navigation Header */}
       <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-50">
         <div className="flex items-center gap-3 font-bold text-xl cursor-pointer" onClick={() => setView('home')}>
-          <div className="w-12 h-12">
-            <Logo />
-          </div>
+          <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-16 h-16 rounded-full object-cover" />
           <span className="hidden sm:inline tracking-tighter">ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium">
@@ -2251,7 +2255,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0502] text-gray-200">
       <nav className="p-6 flex justify-between items-center border-b border-white/5">
         <div className="flex items-center gap-3 font-bold text-xl cursor-pointer" onClick={() => setView('home')}>
-          <div className="w-10 h-10"><Logo /></div>
+          <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-14 h-14 rounded-full object-cover" />
           <span>ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <button onClick={() => setView('home')} className="text-gray-400 hover:text-white transition-colors"><X /></button>
@@ -3019,12 +3023,10 @@ export default function App() {
             >
               <UserIcon size={16} />
             </button>
-            <button 
-              onClick={() => {
-                setUser(null);
-                setView('home');
-              }}
-              className="p-2 rounded-lg bg-white/5 border border-white/10 text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all"
+            <button
+              onClick={handleLogout}
+              disabled={isLogoutLoading}
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               title="Sign Out"
             >
               <LogOut size={16} />
@@ -3662,25 +3664,19 @@ export default function App() {
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="w-32 h-32"
+              className="text-center"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-              >
-                <Logo />
-              </motion.div>
+              <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 mx-auto rounded-full object-cover" />
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8, duration: 0.6 }}
-                className="text-center mt-8"
+                className="text-center mt-6 sm:mt-8"
               >
-                <h1 className="text-2xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
                 <motion.div
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className="mt-4 text-xs text-gray-500"
+                  className="text-xs sm:text-sm text-gray-500"
                 >
                   Loading...
                 </motion.div>
@@ -3689,6 +3685,43 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Logout Loading Screen */}
+      <AnimatePresence>
+        {isLogoutLoading && (
+          <motion.div
+            key="logout-splash"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-[200] bg-[#0a0502] flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="text-center"
+            >
+              <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 mx-auto rounded-full object-cover" />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8, duration: 0.6 }}
+                className="text-center mt-6 sm:mt-8"
+              >
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="text-xs sm:text-sm text-gray-500"
+                >
+                  Signing out...
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {view === 'home' && (
           <motion.div
