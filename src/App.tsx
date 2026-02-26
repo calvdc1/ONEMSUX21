@@ -253,6 +253,7 @@ export default function App() {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isLogoutLoading, setIsLogoutLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('onemsu_auth') === 'true';
@@ -1125,11 +1126,15 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser(null);
-    setView('home');
-    localStorage.removeItem('onemsu_auth');
-    localStorage.removeItem('onemsu_user');
+    setIsLogoutLoading(true);
+    setTimeout(() => {
+      setIsLoggedIn(false);
+      setUser(null);
+      setView('home');
+      localStorage.removeItem('onemsu_auth');
+      localStorage.removeItem('onemsu_user');
+      setIsLogoutLoading(false);
+    }, 10000);
   };
 
   const handleForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
@@ -1206,9 +1211,10 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleLogout}
-            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+            disabled={isLogoutLoading}
+            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign Out
+            {isLogoutLoading ? 'Signing out...' : 'Sign Out'}
           </button>
         </div>
       </header>
@@ -3017,12 +3023,10 @@ export default function App() {
             >
               <UserIcon size={16} />
             </button>
-            <button 
-              onClick={() => {
-                setUser(null);
-                setView('home');
-              }}
-              className="p-2 rounded-lg bg-white/5 border border-white/10 text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all"
+            <button
+              onClick={handleLogout}
+              disabled={isLogoutLoading}
+              className="p-2 rounded-lg bg-white/5 border border-white/10 text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               title="Sign Out"
             >
               <LogOut size={16} />
@@ -3681,6 +3685,43 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Logout Loading Screen */}
+      <AnimatePresence>
+        {isLogoutLoading && (
+          <motion.div
+            key="logout-splash"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-[200] bg-[#0a0502] flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="text-center"
+            >
+              <img src="/onemsu-logo.webp" alt="ONEMSU" className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 mx-auto rounded-full object-cover" />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8, duration: 0.6 }}
+                className="text-center mt-6 sm:mt-8"
+              >
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="text-xs sm:text-sm text-gray-500"
+                >
+                  Signing out...
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {view === 'home' && (
           <motion.div
