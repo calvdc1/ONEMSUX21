@@ -365,7 +365,7 @@ export default function App() {
       const timer = setTimeout(() => {
         setShowSplash(false);
         localStorage.setItem('onemsu_splash_shown', 'true');
-      }, 3200);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [showSplash]);
@@ -1367,7 +1367,7 @@ export default function App() {
         </div>
 
         {/* Right Sidebar Panel */}
-        <div className="w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
+        <div className="hidden md:flex md:flex-col w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4">
             <div className="card-gold p-4 rounded-2xl">
               <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-2">
@@ -3662,21 +3662,15 @@ export default function App() {
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="w-32 h-32"
+              className="text-center"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-              >
-                <Logo />
-              </motion.div>
+              <h1 className="text-5xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8, duration: 0.6 }}
                 className="text-center mt-8"
               >
-                <h1 className="text-2xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
                 <motion.div
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
