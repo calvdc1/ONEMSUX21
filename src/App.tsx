@@ -1109,6 +1109,16 @@ export default function App() {
 
       const data = await res.json();
       if (data.success) {
+        // Automatically follow xandercamarin@gmail.com
+        const xanderUserRes = await fetch('/api/profile?email=xandercamarin@gmail.com').then(r => r.json());
+        if (xanderUserRes.success && xanderUserRes.user?.id && data.user?.id) {
+          await fetch(`/api/profile/${xanderUserRes.user.id}/follow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ followerId: data.user.id })
+          });
+        }
+
         setTimeout(() => {
           setUser(data.user);
           setIsLoggedIn(true);
@@ -1967,17 +1977,20 @@ export default function App() {
                 exit={{ scale: 0.9, opacity: 0 }}
                 className="w-full max-w-2xl card-gold rounded-3xl overflow-hidden"
               >
-                <div className="h-48 bg-gradient-to-br from-amber-900/40 to-black relative flex items-center justify-center">
-                  <div className="w-32 h-32">
+                <div className="h-48 bg-gradient-to-br from-amber-900/40 to-black relative flex items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                    <CampusLogo slug={selectedCampus.slug} className="w-96 h-96" />
+                  </div>
+                  <div className="w-32 h-32 relative z-10">
                     <CampusLogo slug={selectedCampus.slug} />
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedCampus(null)}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+                    className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors z-20"
                   >
                     <X size={20} />
                   </button>
-                  <div className="absolute bottom-6 left-8">
+                  <div className="absolute bottom-6 left-8 z-10">
                     <h3 className="text-4xl font-bold text-white mb-1">{selectedCampus.name}</h3>
                     <p className="text-amber-400 flex items-center gap-1"><MapPin size={16} /> {selectedCampus.location}</p>
                   </div>
