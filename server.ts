@@ -366,13 +366,40 @@ User (${userName || "Student"}): ${message}`
 
   // WebSocket Logic
   const clients = new Map<WebSocket, { userId: number; roomId: string }>();
+  const userConnectionCount = new Map<number, number>();
+
+  const broadcastPresence = (userId: number, online: boolean) => {
+    const payload = JSON.stringify({ type: 'presence', userId, online });
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) client.send(payload);
+    });
+  };
+
+  app.get('/api/status/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, message: 'Invalid id' });
+    res.json({ success: true, online: (userConnectionCount.get(id) || 0) > 0 });
+  });
 
   wss.on("connection", (ws) => {
     ws.on("message", (data) => {
       const message = JSON.parse(data.toString());
 
       if (message.type === "join") {
+        const prev = clients.get(ws);
+        if (prev && prev.userId !== message.userId) {
+          const prevCount = (userConnectionCount.get(prev.userId) || 1) - 1;
+          if (prevCount <= 0) {
+            userConnectionCount.delete(prev.userId);
+            broadcastPresence(prev.userId, false);
+          } else {
+            userConnectionCount.set(prev.userId, prevCount);
+          }
+        }
         clients.set(ws, { userId: message.userId, roomId: message.roomId });
+        const count = (userConnectionCount.get(message.userId) || 0) + 1;
+        userConnectionCount.set(message.userId, count);
+        if (count === 1) broadcastPresence(message.userId, true);
       } else if (message.type === "chat") {
         const { senderId, senderName, content, roomId } = message;
         
@@ -414,7 +441,17 @@ User (${userName || "Student"}): ${message}`
     });
 
     ws.on("close", () => {
+      const data = clients.get(ws);
       clients.delete(ws);
+      if (data) {
+        const count = (userConnectionCount.get(data.userId) || 1) - 1;
+        if (count <= 0) {
+          userConnectionCount.delete(data.userId);
+          broadcastPresence(data.userId, false);
+        } else {
+          userConnectionCount.set(data.userId, count);
+        }
+      }
     });
   });
 

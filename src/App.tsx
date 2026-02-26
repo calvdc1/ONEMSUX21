@@ -34,7 +34,9 @@ import {
   Bot,
   Mic,
   Volume2,
-  Square
+  Square,
+  PhoneCall,
+  Video
 } from 'lucide-react';
 
 // --- Types ---
@@ -266,6 +268,13 @@ export default function App() {
   const [assistantVoiceMode, setAssistantVoiceMode] = useState<'text' | 'voice'>('text');
   const [assistantListening, setAssistantListening] = useState(false);
   const speechRecognitionRef = useRef<any>(null);
+  const [onlineUsers, setOnlineUsers] = useState<Record<number, boolean>>({});
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
+  const [imageEditorTarget, setImageEditorTarget] = useState<'avatar' | 'cover'>('avatar');
+  const [imageEditorSource, setImageEditorSource] = useState<string>('');
+  const [imageZoom, setImageZoom] = useState(1);
+  const [imageOffsetX, setImageOffsetX] = useState(0);
+  const [imageOffsetY, setImageOffsetY] = useState(0);
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string } | null>(null);
   const [newGroup, setNewGroup] = useState<{ name: string; description: string; campus: string; logoPreview: string | null }>({ name: '', description: '', campus: '', logoPreview: null });
   const [dashboardCreateOpen, setDashboardCreateOpen] = useState(false);
@@ -370,12 +379,15 @@ export default function App() {
 
       socket.onopen = () => {
         socket.send(JSON.stringify({ type: 'join', userId: user.id, roomId: activeRoom }));
+        setOnlineUsers((prev) => ({ ...prev, [user.id]: true }));
       };
 
       socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'chat' && data.roomId === activeRoom) {
           setMessages(prev => [...prev, data]);
+        } else if (data.type === 'presence') {
+          setOnlineUsers((prev) => ({ ...prev, [data.userId]: !!data.online }));
         }
       };
 
@@ -417,6 +429,14 @@ export default function App() {
         });
     }
   }, [isLoggedIn, activeRoom]);
+
+  useEffect(() => {
+    const peerId = getDmPeerId(activeRoom);
+    if (!peerId) return;
+    fetch(`/api/status/${peerId}`).then(r => r.json()).then((res) => {
+      if (res?.success) setOnlineUsers((prev) => ({ ...prev, [peerId]: !!res.online }));
+    }).catch(() => {});
+  }, [activeRoom, user?.id]);
 
   useEffect(() => {
     if (scrollRef.current && stickToBottomRef.current) {
@@ -468,6 +488,73 @@ export default function App() {
     } else {
       setSearchResults([]);
     }
+  };
+
+  const getDmPeerId = (room: string) => {
+    if (!room.startsWith('dm-') || !user) return null;
+    const parts = room.split('-');
+    if (parts.length !== 3) return null;
+    const a = Number(parts[1]);
+    const b = Number(parts[2]);
+    return a === user.id ? b : b === user.id ? a : null;
+  };
+
+  const openImageEditor = (file: File, target: 'avatar' | 'cover') => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageEditorSource(reader.result as string);
+      setImageEditorTarget(target);
+      setImageZoom(1);
+      setImageOffsetX(0);
+      setImageOffsetY(0);
+      setImageEditorOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveEditedImage = async () => {
+    if (!imageEditorSource || !user) return;
+    const img = new Image();
+    img.src = imageEditorSource;
+    await new Promise((resolve) => { img.onload = () => resolve(null); });
+
+    const canvas = document.createElement('canvas');
+    const outW = imageEditorTarget === 'cover' ? 1200 : 512;
+    const outH = imageEditorTarget === 'cover' ? 420 : 512;
+    canvas.width = outW;
+    canvas.height = outH;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const baseScale = Math.max(outW / img.width, outH / img.height);
+    const scale = baseScale * imageZoom;
+    const drawW = img.width * scale;
+    const drawH = img.height * scale;
+    const x = (outW - drawW) / 2 + imageOffsetX;
+    const y = (outH - drawH) / 2 + imageOffsetY;
+
+    ctx.fillStyle = '#0a0502';
+    ctx.fillRect(0, 0, outW, outH);
+    ctx.drawImage(img, x, y, drawW, drawH);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const up = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl })
+    }).then(r => r.json());
+    if (!up.success) return;
+
+    const payload = imageEditorTarget === 'avatar' ? { avatar: up.url } : { cover_photo: up.url };
+    const res = await fetch(`/api/profile/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(r => r.json());
+
+    if (res.success) setUser(res.user);
+    setImageEditorOpen(false);
   };
 
   const sendMessage = (content: string) => {
@@ -539,6 +626,7 @@ export default function App() {
     setView('home');
     localStorage.removeItem('onemsu_auth');
     localStorage.removeItem('onemsu_user');
+    setOnlineUsers({});
     setShowLogoutSplash(false);
   };
 
@@ -1770,34 +1858,6 @@ export default function App() {
           <Input label="Department" value={form.department} onChange={(v) => setForm({ ...form, department: v })} />
           <Input label="Profile Photo URL (or upload below)" value={form.avatar} onChange={(v) => setForm({ ...form, avatar: v })} />
           <Input label="Background Photo URL (or upload below)" value={form.cover_photo} onChange={(v) => setForm({ ...form, cover_photo: v })} />
-          <div className="md:col-span-2 flex flex-wrap gap-2">
-            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 cursor-pointer">
-              Upload Profile Photo
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async () => {
-                  const up = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl: reader.result }) }).then(r => r.json());
-                  if (up.success) setForm((prev) => ({ ...prev, avatar: up.url }));
-                };
-                reader.readAsDataURL(file);
-              }} />
-            </label>
-            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10 cursor-pointer">
-              Upload Background
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async () => {
-                  const up = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataUrl: reader.result }) }).then(r => r.json());
-                  if (up.success) setForm((prev) => ({ ...prev, cover_photo: up.url }));
-                };
-                reader.readAsDataURL(file);
-              }} />
-            </label>
-          </div>
           <Textarea label="Bio / Intro" value={form.bio} onChange={(v) => setForm({ ...form, bio: v })} />
         </div>
         <div className="mt-6 flex items-center gap-3">
@@ -1829,11 +1889,25 @@ export default function App() {
           <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
         </header>
         <div className="rounded-3xl overflow-hidden border border-white/10 bg-white/5">
-          <div className="h-40 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative"
+          <div className="h-40 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative group"
                style={{ backgroundImage: user?.cover_photo ? `url(${user.cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            <label className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-black/30 text-white text-xs border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
+              Change Background
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) openImageEditor(f, 'cover');
+              }} />
+            </label>
             <div className="absolute -bottom-10 left-6">
-              <div className="w-24 h-24 rounded-full ring-4 ring-[#0a0502] overflow-hidden bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">
+              <div className="w-24 h-24 rounded-full ring-4 ring-[#0a0502] overflow-hidden bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold relative group/avatar">
                 {user?.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : (user?.name || 'U')[0]}
+                <label className="absolute inset-0 bg-black/45 text-[10px] text-white flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer">
+                  Change Profile
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) openImageEditor(f, 'avatar');
+                  }} />
+                </label>
               </div>
             </div>
           </div>
@@ -2059,7 +2133,7 @@ export default function App() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">{u.name}</p>
-                    <p className="text-xs text-gray-500">{u.campus}</p>
+                    <p className="text-xs text-gray-500">{u.campus} • <span className={onlineUsers[u.id] ? 'text-emerald-400' : 'text-gray-500'}>{onlineUsers[u.id] ? 'Active' : 'Offline'}</span></p>
                   </div>
                 </button>
               ))}
@@ -2105,6 +2179,11 @@ export default function App() {
             </div>
             <div>
               <h3 className="font-bold text-white capitalize">{activeRoom.replace(/-/g, ' ')}</h3>
+              {getDmPeerId(activeRoom) && (
+                <span className={`text-xs ${onlineUsers[getDmPeerId(activeRoom)!] ? 'text-emerald-400' : 'text-gray-500'}`}>
+                  {onlineUsers[getDmPeerId(activeRoom)!] ? 'Active' : 'Offline'}
+                </span>
+              )}
               <p className="text-[10px] text-gray-500">
                 {activeRoom.startsWith('dm') ? 'Direct Message' : ['global', 'announcements', 'help-desk'].includes(activeRoom) ? 'Channel' : 'Campus'}
               </p>
@@ -2115,6 +2194,19 @@ export default function App() {
             </div>
           </div>
           <div className="relative flex items-center gap-2 text-gray-500">
+            {activeRoom.startsWith('dm-') && (
+              <>
+                <button title="Call" aria-label="Call" className="p-2 rounded-lg hover:text-white hover:bg-white/5">
+                  <PhoneCall size={20} />
+                </button>
+                <button title="Video call" aria-label="Video call" className="p-2 rounded-lg hover:text-white hover:bg-white/5">
+                  <Video size={20} />
+                </button>
+                <button title="Info" aria-label="Info" className="p-2 rounded-lg hover:text-white hover:bg-white/5">
+                  <Info size={20} />
+                </button>
+              </>
+            )}
             <button
               onClick={() => setMutedRooms(prev => prev.includes(activeRoom) ? prev.filter(r => r !== activeRoom) : [...prev, activeRoom])}
               title={mutedRooms.includes(activeRoom) ? 'Unmute room' : 'Mute room'}
@@ -2279,6 +2371,48 @@ export default function App() {
       </div>
     </div>
   );
+
+  if (imageEditorOpen) {
+    return (
+      <div className="min-h-screen bg-black/95 text-white flex items-center justify-center p-6">
+        <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-[#0a0502] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-metallic-gold">Edit {imageEditorTarget === 'avatar' ? 'Profile' : 'Background'} Photo</h3>
+            <button onClick={() => setImageEditorOpen(false)} className="text-gray-400 hover:text-white"><X /></button>
+          </div>
+          <div className="h-72 rounded-2xl overflow-hidden border border-white/10 bg-black/40 mb-4 relative">
+            <img
+              src={imageEditorSource}
+              alt="edit"
+              style={{
+                transform: `translate(${imageOffsetX}px, ${imageOffsetY}px) scale(${imageZoom})`,
+                transformOrigin: 'center center'
+              }}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Zoom</div>
+              <input type="range" min="1" max="2.5" step="0.01" value={imageZoom} onChange={(e) => setImageZoom(Number(e.target.value))} className="w-full" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Move Horizontal</div>
+              <input type="range" min="-260" max="260" step="1" value={imageOffsetX} onChange={(e) => setImageOffsetX(Number(e.target.value))} className="w-full" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Move Vertical</div>
+              <input type="range" min="-260" max="260" step="1" value={imageOffsetY} onChange={(e) => setImageOffsetY(Number(e.target.value))} className="w-full" />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <button onClick={() => setImageEditorOpen(false)} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10">Cancel</button>
+            <button onClick={saveEditedImage} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold">Save</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showLogoutSplash) {
     return (
