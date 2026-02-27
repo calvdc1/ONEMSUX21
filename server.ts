@@ -19,7 +19,9 @@ try {
     email TEXT UNIQUE,
     password TEXT,
     campus TEXT,
-    avatar TEXT
+    avatar TEXT,
+    is_verified INTEGER DEFAULT 0,
+    is_admin INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS messages (
@@ -60,6 +62,12 @@ try {
     logo_url TEXT
   );
   
+  CREATE TABLE IF NOT EXISTS email_verifications (
+    email TEXT PRIMARY KEY,
+    code TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  
   CREATE TABLE IF NOT EXISTS feedbacks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -84,6 +92,11 @@ try {
     reports INTEGER DEFAULT 0,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
 } catch (err: any) {
   if (err && err.code === "SQLITE_NOTADB") {
@@ -95,7 +108,9 @@ try {
         email TEXT UNIQUE,
         password TEXT,
         campus TEXT,
-        avatar TEXT
+        avatar TEXT,
+        is_verified INTEGER DEFAULT 0,
+        is_admin INTEGER DEFAULT 0
       );
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,6 +135,31 @@ try {
         campus TEXT,
         logo_url TEXT
       );
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        email TEXT PRIMARY KEY,
+        code TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+  CREATE TABLE IF NOT EXISTS lost_found (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    description TEXT,
+    campus TEXT,
+    contact TEXT,
+    image_url TEXT,
+    found INTEGER DEFAULT 0,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+      CREATE TABLE IF NOT EXISTS lost_found (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        description TEXT,
+        campus TEXT,
+        contact TEXT,
+        image_url TEXT,
+        found INTEGER DEFAULT 0,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
       CREATE TABLE IF NOT EXISTS feedbacks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -142,6 +182,10 @@ try {
         reports INTEGER DEFAULT 0,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
     `);
   } else {
     throw err;
@@ -158,6 +202,8 @@ try { db.exec(`ALTER TABLE users ADD COLUMN year_level TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN department TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN bio TEXT`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN cover_photo TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`); } catch {}
 const groupsCount = db.prepare("SELECT COUNT(*) AS c FROM groups").get() as { c: number };
 if (!groupsCount.c) {
   const stmt = db.prepare("INSERT INTO groups (name, description, campus) VALUES (?, ?, ?)");
@@ -188,7 +234,7 @@ async function startServer() {
   });
   app.get("/api/profile/:id", (req, res) => {
     const id = Number(req.params.id);
-    const user = db.prepare("SELECT id, name, email, campus, avatar, student_id, program, year_level, department, bio, cover_photo FROM users WHERE id = ?").get(id);
+    const user = db.prepare("SELECT id, name, email, campus, avatar, student_id, program, year_level, department, bio, cover_photo, is_verified, is_admin FROM users WHERE id = ?").get(id);
     if (!user) return res.status(404).json({ success: false, message: "Not found" });
     res.json({ success: true, user });
   });
@@ -329,14 +375,68 @@ async function startServer() {
   });
 
   app.post("/api/auth/signup", (req, res) => {
-    const { name, email, password, campus } = req.body;
+    const { name, email, password, campus, code } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email required" });
+    }
+    // Check settings to see if code is required
+    let requireCode = false;
     try {
-      const info = db.prepare("INSERT INTO users (name, email, password, campus) VALUES (?, ?, ?, ?)").run(name, email, password, campus);
+      const s = db.prepare("SELECT value FROM settings WHERE key = 'requireSignupCode'").get() as { value: string } | undefined;
+      if (s) {
+        const v = JSON.parse(s.value);
+        requireCode = !!v;
+      }
+    } catch {}
+    if (requireCode) {
+      const row = db.prepare("SELECT code, created_at FROM email_verifications WHERE email = ?").get(email) as { code: string; created_at: string } | undefined;
+      if (!row || row.code !== code) {
+        return res.status(400).json({ success: false, message: "Invalid or missing verification code" });
+      }
+    }
+    try {
+      const info = db.prepare("INSERT INTO users (name, email, password, campus, is_verified, is_admin) VALUES (?, ?, ?, ?, 0, 0)").run(name, email, password, campus);
+      if (requireCode) db.prepare("DELETE FROM email_verifications WHERE email = ?").run(email);
       const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
       res.json({ success: true, user });
     } catch (err) {
       res.status(400).json({ success: false, message: "Email already exists" });
     }
+  });
+  app.post("/api/auth/request-code", (req, res) => {
+    const { email } = req.body as { email: string };
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Valid email required" });
+    }
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    db.prepare("INSERT INTO email_verifications (email, code, created_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(email) DO UPDATE SET code=excluded.code, created_at=CURRENT_TIMESTAMP").run(email, code);
+    const dev = process.env.NODE_ENV !== "production";
+    res.json({ success: true, sent: true, devCode: dev ? code : undefined });
+  });
+  app.get("/api/auth/check-email", (req, res) => {
+    const email = String(req.query.email || "").trim().toLowerCase();
+    if (!email) return res.json({ exists: false });
+    const row = db.prepare("SELECT 1 FROM users WHERE lower(email) = ?").get(email);
+    res.json({ exists: !!row });
+  });
+  
+  app.get("/api/lostfound", (_req, res) => {
+    const items = db.prepare("SELECT * FROM lost_found ORDER BY datetime(timestamp) DESC").all();
+    res.json(items);
+  });
+  app.post("/api/lostfound", (req, res) => {
+    const { title, description, campus, contact, imageUrl } = req.body as { title: string; description: string; campus?: string; contact?: string; imageUrl?: string };
+    if (!title || !description) return res.status(400).json({ success: false, message: "Title and description required" });
+    const info = db.prepare("INSERT INTO lost_found (title, description, campus, contact, image_url) VALUES (?, ?, ?, ?, ?)").run(title, description, campus || '', contact || '', imageUrl || null);
+    const item = db.prepare("SELECT * FROM lost_found WHERE id = ?").get(info.lastInsertRowid);
+    res.json({ success: true, item });
+  });
+  app.patch("/api/lostfound/:id", (req, res) => {
+    const id = Number(req.params.id);
+    const { found } = req.body as { found: boolean };
+    db.prepare("UPDATE lost_found SET found = ? WHERE id = ?").run(found ? 1 : 0, id);
+    const item = db.prepare("SELECT * FROM lost_found WHERE id = ?").get(id);
+    res.json({ success: true, item });
   });
 
   app.get("/api/messages/:roomId", (req, res) => {
@@ -443,12 +543,66 @@ async function startServer() {
 
   app.get("/api/users/search", (req, res) => {
     const query = req.query.q;
-    const users = db.prepare("SELECT id, name, email, campus FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10").all(`%${query}%`, `%${query}%`);
+    const users = db.prepare("SELECT id, name, email, campus, is_verified, is_admin FROM users WHERE name LIKE ? OR email LIKE ? LIMIT 10").all(`%${query}%`, `%${query}%`);
     res.json(users);
+  });
+
+  app.put("/api/users/:id/roles", (req, res) => {
+    const id = Number(req.params.id);
+    const { email, is_verified, is_admin } = req.body as { email: string; is_verified?: boolean; is_admin?: boolean };
+    if (!email || email !== "xandercamarin@gmail.com") {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+    const row = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
+    if (!row) return res.status(404).json({ success: false, message: "User not found" });
+    db.prepare("UPDATE users SET is_verified = COALESCE(?, is_verified), is_admin = COALESCE(?, is_admin) WHERE id = ?")
+      .run(is_verified != null ? (is_verified ? 1 : 0) : null, is_admin != null ? (is_admin ? 1 : 0) : null, id);
+    const user = db.prepare("SELECT id, name, email, campus, avatar, is_verified, is_admin FROM users WHERE id = ?").get(id);
+    res.json({ success: true, user });
+  });
+  app.get("/api/settings", (_req, res) => {
+    try {
+      const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
+      const obj: Record<string, any> = {};
+      for (const r of rows) {
+        try {
+          obj[r.key] = JSON.parse(r.value);
+        } catch {
+          obj[r.key] = r.value;
+        }
+      }
+      res.json({ success: true, settings: obj });
+    } catch (e) {
+      res.status(500).json({ success: false, message: "Failed to load settings" });
+    }
+  });
+
+  app.put("/api/settings", (req, res) => {
+    const { userId, email, updates } = req.body as { userId: number; email: string; updates: Record<string, any> };
+    if (!email || email !== "xandercamarin@gmail.com") {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+    if (!updates || typeof updates !== "object") {
+      return res.status(400).json({ success: false, message: "Invalid updates" });
+    }
+    const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value");
+    const tx = db.transaction((obj: Record<string, any>) => {
+      for (const [k, v] of Object.entries(obj)) {
+        stmt.run(k, JSON.stringify(v));
+      }
+    });
+    try {
+      tx(updates);
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ success: false, message: "Failed to save settings" });
+    }
   });
 
   // WebSocket Logic
   const clients = new Map<WebSocket, { userId: number; roomId: string }>();
+  const userSockets = new Map<number, WebSocket>();
+  const voiceRooms = new Map<string, Set<number>>();
 
   const broadcastToAll = (payload: any) => {
     const data = JSON.stringify(payload);
@@ -465,11 +619,12 @@ async function startServer() {
 
       if (message.type === "join") {
         clients.set(ws, { userId: message.userId, roomId: message.roomId });
+        userSockets.set(message.userId, ws);
         // Mark as online
         db.prepare("INSERT OR REPLACE INTO presence (user_id, last_seen) VALUES (?, CURRENT_TIMESTAMP)").run(message.userId);
         broadcastToAll({ type: 'presence_update', userId: message.userId, status: 'online' });
       } else if (message.type === "chat") {
-        const { senderId, senderName, content, roomId, mediaUrl, mediaType } = message;
+        const { senderId, senderName, content, roomId, mediaUrl, mediaType, clientId } = message;
         
         // Save to DB
         const result = db.prepare("INSERT INTO messages (sender_id, sender_name, content, room_id, media_url, media_type) VALUES (?, ?, ?, ?, ?, ?)").run(senderId, senderName, content, roomId, mediaUrl || null, mediaType || null);
@@ -488,6 +643,7 @@ async function startServer() {
           roomId,
           mediaUrl,
           mediaType,
+          clientId: clientId || null,
           timestamp: new Date().toISOString()
         });
 
@@ -499,6 +655,63 @@ async function startServer() {
             }
           }
         });
+      } else if (message.type === "typing") {
+        const { roomId } = message;
+        const payload = JSON.stringify({
+          type: "typing",
+          roomId: message.roomId,
+          senderId: message.senderId,
+          senderName: message.senderName,
+          isTyping: !!message.isTyping
+        });
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            const clientData = clients.get(client);
+            if (clientData && clientData.roomId === roomId) {
+              client.send(payload);
+            }
+          }
+        });
+      } else if (message.type === "join-voice") {
+        const roomId = String(message.roomId);
+        const userId = Number(message.userId);
+        const set = voiceRooms.get(roomId) ?? new Set<number>();
+        const existing = Array.from(set).filter((id) => id !== userId);
+        set.add(userId);
+        voiceRooms.set(roomId, set);
+        const socket = userSockets.get(userId);
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "voice-existing-users", users: existing }));
+        }
+        set.forEach((uid) => {
+          if (uid !== userId) {
+            const s = userSockets.get(uid);
+            if (s && s.readyState === WebSocket.OPEN) {
+              s.send(JSON.stringify({ type: "user-joined-voice", userId }));
+            }
+          }
+        });
+      } else if (message.type === "leave-voice") {
+        const roomId = String(message.roomId);
+        const userId = Number(message.userId);
+        const set = voiceRooms.get(roomId);
+        if (set) {
+          set.delete(userId);
+          voiceRooms.set(roomId, set);
+          set.forEach((uid) => {
+            const s = userSockets.get(uid);
+            if (s && s.readyState === WebSocket.OPEN) {
+              s.send(JSON.stringify({ type: "user-left-voice", userId }));
+            }
+          });
+        }
+      } else if (message.type === "voice-signal") {
+        const targetId = Number(message.targetId);
+        const senderId = Number(message.senderId);
+        const s = userSockets.get(targetId);
+        if (s && s.readyState === WebSocket.OPEN) {
+          s.send(JSON.stringify({ type: "voice-signal", senderId, payload: message.payload }));
+        }
       } else if (message.type === "seen") {
         const { userId, roomId, lastRead } = message as { userId: number; roomId: string; lastRead: string };
         try {
@@ -533,8 +746,20 @@ async function startServer() {
     ws.on("close", () => {
       const clientData = clients.get(ws);
       if (clientData) {
-        // We could mark as offline here, but heartbeats are more reliable
-        // broadcastToAll({ type: 'presence_update', userId: clientData.userId, status: 'offline' });
+        const uid = clientData.userId;
+        userSockets.delete(uid);
+        Array.from(voiceRooms.entries()).forEach(([room, set]) => {
+          if (set.has(uid)) {
+            set.delete(uid);
+            voiceRooms.set(room, set);
+            set.forEach((other) => {
+              const s = userSockets.get(other);
+              if (s && s.readyState === WebSocket.OPEN) {
+                s.send(JSON.stringify({ type: "user-left-voice", userId: uid }));
+              }
+            });
+          }
+        });
       }
       clients.delete(ws);
     });
@@ -554,7 +779,7 @@ async function startServer() {
     });
   }
 
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3001;
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
