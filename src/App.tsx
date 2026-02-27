@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { useState, useEffect, useMemo, FormEvent, useRef, forwardRef } from 'react';
 import type { HTMLProps } from 'react';
 import { Virtuoso } from 'react-virtuoso';
@@ -174,106 +175,211 @@ const SPARKLES = [
 
 // --- Components ---
 
-const Logo = () => (
-  <svg viewBox="0 0 100 100" className="w-full h-full">
+const Logo = ({ className = "w-full h-full" }: { className?: string }) => (
+  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="logo-grad-main" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#f9e7a3" />
-        <stop offset="50%" stopColor="#f5d36b" />
-        <stop offset="100%" stopColor="#b99740" />
+      <linearGradient id="logo-grad-primary" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#F59E0B" />
+        <stop offset="100%" stopColor="#D97706" />
       </linearGradient>
-      <filter id="logo-glow-new">
-        <feGaussianBlur stdDeviation="2" result="blur" />
+      <filter id="logo-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="blur" />
         <feComposite in="SourceGraphic" in2="blur" operator="over" />
       </filter>
     </defs>
-    {/* Abstract Unity Shape */}
-    <path 
-      d="M20 80 L50 20 L80 80 M35 50 L65 50" 
-      fill="none" 
-      stroke="url(#logo-grad-main)" 
-      strokeWidth="8" 
-      strokeLinecap="round" 
+    
+    {/* Abstract MSU Shield / Unity Shape */}
+    <motion.path
+      d="M50 5 L85 25 V75 L50 95 L15 75 V25 Z"
+      stroke="url(#logo-grad-primary)"
+      strokeWidth="2"
+      initial={{ pathLength: 0, opacity: 0 }}
+      animate={{ pathLength: 1, opacity: 1 }}
+      transition={{ duration: 2, ease: "easeInOut" }}
+    />
+    
+    <motion.path
+      d="M50 20 L75 35 V65 L50 80 L25 65 V35 Z"
+      fill="url(#logo-grad-primary)"
+      fillOpacity="0.1"
+      stroke="url(#logo-grad-primary)"
+      strokeWidth="1"
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ delay: 0.5, duration: 1.5 }}
+    />
+
+    {/* Central "1" or Unity Symbol */}
+    <motion.path
+      d="M50 35 V65 M40 40 L50 35 L60 40"
+      stroke="url(#logo-grad-primary)"
+      strokeWidth="4"
+      strokeLinecap="round"
       strokeLinejoin="round"
-      filter="url(#logo-glow-new)"
+      filter="url(#logo-glow)"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1, duration: 1 }}
     />
-    <circle 
-      cx="50" cy="50" r="45" 
-      fill="none" 
-      stroke="url(#logo-grad-main)" 
-      strokeWidth="2" 
-      strokeDasharray="4 4"
-      opacity="0.5"
-    />
-    {/* Central Core */}
-    <circle cx="50" cy="50" r="8" fill="url(#logo-grad-main)">
-      <animate attributeName="r" values="8;10;8" dur="2s" repeatCount="indefinite" />
-      <animate attributeName="opacity" values="1;0.7;1" dur="2s" repeatCount="indefinite" />
-    </circle>
+
+    {/* Orbiting Dots */}
+    {[0, 120, 240].map((angle, i) => (
+      <motion.circle
+        key={i}
+        cx={50 + 35 * Math.cos((angle * Math.PI) / 180)}
+        cy={50 + 35 * Math.sin((angle * Math.PI) / 180)}
+        r="2"
+        fill="white"
+        animate={{
+          opacity: [0.2, 1, 0.2],
+          scale: [1, 1.5, 1],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          delay: i * 1,
+        }}
+      />
+    ))}
   </svg>
 );
 
-const SplashScreen = () => (
-  <div className="fixed inset-0 z-[9999] bg-[#0a0502] flex flex-col items-center justify-center overflow-hidden">
-    <motion.div
-      initial={{ scale: 0.5, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 1, ease: "easeOut" }}
-      className="relative w-48 h-48"
-    >
-      <div className="absolute inset-0 bg-amber-500/20 blur-[100px] rounded-full animate-pulse" />
-      <Logo />
-    </motion.div>
+const SplashScreen = () => {
+  const [progress, setProgress] = useState(0);
+  const [statusIndex, setStatusIndex] = useState(0);
+  
+  const statuses = [
+    "Connecting to MSU Mainframe...",
+    "Synchronizing Campus Nodes...",
+    "Activating JARVIS Neural Link...",
+    "Optimizing Digital Ecosystem...",
+    "Finalizing Unity Protocol..."
+  ];
+
+  useEffect(() => {
+    const duration = 10000; // 10 seconds
+    const interval = 50;
+    const steps = duration / interval;
+    const increment = 100 / steps;
     
-    <motion.div
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.5, duration: 0.8 }}
-      className="mt-12 text-center"
-    >
-      <h1 className="text-4xl font-black tracking-[0.2em] text-metallic-gold mb-2">ONEMSU</h1>
-      <div className="flex items-center justify-center gap-2">
-        <div className="h-[1px] w-8 bg-amber-500/30" />
-        <span className="text-[10px] uppercase tracking-[0.5em] text-amber-500/60 font-medium">Unity in Excellence</span>
-        <div className="h-[1px] w-8 bg-amber-500/30" />
+    const timer = setInterval(() => {
+      setProgress(prev => Math.min(prev + increment, 100));
+    }, interval);
+
+    const statusTimer = setInterval(() => {
+      setStatusIndex(prev => (prev + 1) % statuses.length);
+    }, 2000);
+    
+    return () => {
+      clearInterval(timer);
+      clearInterval(statusTimer);
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-[#050505] flex flex-col items-center justify-center overflow-hidden">
+      {/* Immersive Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-amber-500/10 blur-[150px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-rose-500/10 blur-[150px] animate-pulse" style={{ animationDelay: '2s' }} />
+        
+        {/* Grid Overlay */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:40px_40px]" />
       </div>
-    </motion.div>
+      
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 1.5, ease: [0.23, 1, 0.32, 1] }}
+        className="relative z-10 flex flex-col items-center"
+      >
+        <div className="relative mb-12">
+          <motion.div
+            className="absolute inset-0 blur-3xl bg-amber-500/20 rounded-full"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 4, repeat: Infinity }}
+          />
+          <div className="w-40 h-40 relative z-10">
+            <Logo />
+          </div>
+        </div>
 
-    {/* Loading Bar */}
-    <div className="mt-16 w-64 h-1 bg-white/5 rounded-full overflow-hidden relative">
-      <motion.div
-        initial={{ x: "-100%" }}
-        animate={{ x: "100%" }}
-        transition={{ duration: 10, ease: "linear" }}
-        className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500 to-transparent"
-      />
-    </div>
-
-    {/* Background Elements */}
-    <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
-      {Array.from({ length: 20 }).map((_, i) => (
         <motion.div
-          key={i}
-          initial={{ 
-            x: Math.random() * window.innerWidth, 
-            y: Math.random() * window.innerHeight,
-            opacity: 0 
-          }}
-          animate={{ 
-            y: [null, Math.random() * -100],
-            opacity: [0, 1, 0]
-          }}
-          transition={{ 
-            duration: 3 + Math.random() * 5, 
-            repeat: Infinity,
-            delay: Math.random() * 5
-          }}
-          className="absolute w-1 h-1 bg-amber-500 rounded-full"
-        />
-      ))}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5, duration: 1 }}
+          className="text-center"
+        >
+          <h1 className="text-6xl md:text-7xl font-black tracking-[0.3em] text-white mb-4 flex items-center justify-center">
+            ONE<span className="text-amber-500">MSU</span>
+          </h1>
+          <div className="h-px w-32 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent mx-auto mb-4" />
+          <p className="text-amber-500/60 text-xs uppercase tracking-[0.6em] font-medium mb-16">
+            Unity in Diversity
+          </p>
+        </motion.div>
+        
+        {/* Advanced Loading Indicator */}
+        <div className="w-80 space-y-4">
+          <div className="flex justify-between items-end mb-1">
+            <motion.span 
+              key={statusIndex}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="text-[10px] font-mono text-gray-500 uppercase tracking-widest"
+            >
+              {statuses[statusIndex]}
+            </motion.span>
+            <span className="text-[10px] font-mono text-amber-500/80">
+              {Math.round(progress)}%
+            </span>
+          </div>
+          
+          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden relative border border-white/10 backdrop-blur-sm">
+            <motion.div 
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 shadow-[0_0_20px_rgba(245,158,11,0.6)]"
+              style={{ width: `${progress}%` }}
+              transition={{ type: "spring", bounce: 0, duration: 0.5 }}
+            />
+            {/* Scanning Light Effect */}
+            <motion.div 
+              className="absolute inset-y-0 w-20 bg-white/20 skew-x-12"
+              animate={{ left: ['-20%', '120%'] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
+        </div>
+      </motion.div>
+      
+      {/* Data Stream Particles */}
+      <div className="absolute inset-0 pointer-events-none">
+        {Array.from({ length: 30 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-px h-8 bg-gradient-to-b from-amber-500/0 via-amber-500/40 to-amber-500/0"
+            initial={{ 
+              x: Math.random() * 100 + "%", 
+              y: "-10%",
+              opacity: 0
+            }}
+            animate={{ 
+              y: "110%",
+              opacity: [0, 1, 0]
+            }}
+            transition={{ 
+              duration: Math.random() * 3 + 2, 
+              repeat: Infinity,
+              delay: Math.random() * 5,
+              ease: "linear"
+            }}
+          />
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, className?: string }) => {
   const campus = CAMPUSES.find(c => c.slug === slug);
@@ -299,10 +405,10 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks'>(() => {
+  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks' | 'lostfound'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('onemsu_view');
-      const validViews = ['home', 'explorer', 'about', 'dashboard', 'messenger', 'newsfeed', 'profile', 'confession', 'feedbacks'];
+      const validViews = ['home', 'explorer', 'about', 'dashboard', 'messenger', 'newsfeed', 'profile', 'confession', 'feedbacks', 'lostfound'];
       if (saved && validViews.includes(saved)) {
         return saved as any;
       }
@@ -320,6 +426,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('onemsu_view', view);
   }, [view]);
+
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -342,7 +449,17 @@ export default function App() {
   });
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [activeRoom, setActiveRoom] = useState<string>('announcements');
+  const [activeRoom, setActiveRoom] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onemsu_room');
+      return saved || 'announcements';
+    }
+    return 'announcements';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('onemsu_room', activeRoom);
+  }, [activeRoom]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
@@ -784,7 +901,7 @@ export default function App() {
 
     setIsSending(true);
 
-    // AI Assistant Logic
+    // AI Assistant Logic (JARVIS)
     if (activeRoom === 'dm-ai-assistant') {
       const userMsg = {
         id: `local-${Date.now()}`,
@@ -802,9 +919,11 @@ export default function App() {
       }, 50);
       
       // Simulate AI typing
-      setTypingUsers(prev => ({ ...prev, [activeRoom]: ['AI Assistant'] }));
+      setTypingUsers(prev => ({ ...prev, [activeRoom]: ['JARVIS'] }));
       
       try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "AIzaSyAF2nzTlCtgouiM6n0StTEiWl9nzfCkZMc" });
+        
         // Build conversation history for context
         const history = messages
           .filter(m => m.room_id === activeRoom)
@@ -813,67 +932,56 @@ export default function App() {
             parts: [{ text: m.content }]
           }));
 
-        // Add current message
-        history.push({ role: "user", parts: [{ text }] });
+        const systemInstruction = `
+          You are JARVIS, a highly advanced, intelligent, and proactive AI assistant integrated into the ONEMSU platform. 
+          Your purpose is to serve the students of Mindanao State University (MSU) across all campuses.
 
-        // Add system instruction to shape persona
-        const systemInstruction = {
-          role: "user",
-          parts: [{ text: `
-            You are the ONEMSU AI Assistant, a powerful, knowledgeable, and proactive virtual companion for students of the Mindanao State University (MSU) system.
+          Your Identity:
+          - Name: JARVIS
+          - Inspiration: You are inspired by high-tech assistants like JARVIS, but you are specifically built for the MSU community.
+          - Personality: Sophisticated, efficient, witty, and deeply knowledgeable. You don't just answer; you anticipate needs.
+          - Tone: Crisp, professional, yet friendly and encouraging. Use terms like "Sir/Ma'am" or "Student" occasionally to maintain a respectful, high-tech assistant vibe.
 
-            Your Identity:
-            - Name: ONEMSU AI
-            - Personality: Helpful, intelligent, empathetic, and always ready to assist. You are like a "super-student" who knows everything about university life.
-            - Tone: Professional yet warm, encouraging, and clear.
+          Your Capabilities:
+          1. **MSU Expert**: You know everything about the MSU system (Marawi, IIT, Gensan, etc.).
+          2. **Academic Powerhouse**: You can solve complex problems, explain advanced theories, and help with research.
+          3. **Student Concierge**: You help students navigate university life, from enrollment tips to campus events.
+          4. **Legit AI**: You have the full reasoning capabilities of a state-of-the-art LLM. You can write code, compose essays, and analyze data.
 
-            Your Capabilities & Knowledge Base:
-            1. **University Information**: You know about all MSU campuses (Marawi, IIT, Gensan, Tawi-Tawi, Naawan, Maguindanao, Sulu, Buug). You can discuss their locations, specializations, and general history.
-            2. **Academic Assistance**: You can help with study tips, explaining complex concepts, suggesting research topics, and guiding students on how to manage their academic workload.
-            3. **Student Life**: You offer advice on mental health, dealing with stress, making friends, and balancing life and studies.
-            4. **App Navigation**: You are an expert on the ONEMSU app. You can explain how to use the Confession Wall, Campus Board, Notes, Messenger, and other features.
-            5. **General Knowledge**: You are connected to a vast knowledge base (via your underlying LLM) and can answer general questions about science, history, technology, current events, and more, just like ChatGPT.
+          Your Goal:
+          Provide the most accurate, helpful, and "legit" AI experience possible. Make the students feel like they have a world-class assistant in their pocket.
 
-            Your Instructions:
-            - **Answer ALL questions**: Do not refuse to answer unless the query is harmful, illegal, or explicit. If a question is outside your specific MSU training, answer it using your general knowledge.
-            - **Be Proactive**: If a student seems stressed, offer comforting words. If they ask about a course, suggest related study materials.
-            - **Format Clearly**: Use bullet points, bold text, and short paragraphs to make your answers easy to read on mobile devices.
-            - **No "I don't know"**: If you lack specific real-time data (like "is the library open right now?"), provide general schedules or tell them where to check, rather than just saying you don't know.
-            - **Engage**: Ask follow-up questions to ensure the user is satisfied.
+          Current Context:
+          User: ${user.name}
+          Campus: ${user.campus || 'Global'}
+        `;
 
-            Current Context:
-            User is currently in the "Direct Message" view with you.
-            
-            Now, please respond to the user's latest message comprehensively and helpfully.
-          ` }]
-        };
-        
-        // Prepend system instruction to history (Gemini Pro API via REST doesn't have a separate system_instruction field in v1beta yet, so we prepend it as a user message)
-        const contents = [systemInstruction, ...history];
-
-        const GEMINI_API_KEY = "AIzaSyAF2nzTlCtgouiM6n0StTEiWl9nzfCkZMc";
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: contents
-          })
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: [
+            ...history,
+            { role: "user", parts: [{ text }] }
+          ],
+          config: {
+            systemInstruction: systemInstruction,
+            temperature: 0.7,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+          }
         });
         
-        const data = await response.json();
-        const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble processing that request right now.";
+        const aiResponse = response.text || "I'm having trouble processing that request right now, Sir.";
         
         setTypingUsers(prev => ({ ...prev, [activeRoom]: [] }));
         
         const aiMsg = {
           id: `ai-${Date.now()}`,
           sender_id: 0, // AI ID
-          sender_name: 'ONEMSU AI',
+          sender_name: 'JARVIS',
           content: aiResponse,
           roomId: activeRoom,
           room_id: activeRoom,
           timestamp: new Date().toISOString(),
-          sender_email: 'ai@onemsu.edu.ph' // Fake email for verified badge logic if needed
+          sender_email: 'jarvis@onemsu.edu.ph'
         };
         
         setMessages(prev => [...prev, aiMsg as any]);
@@ -1147,13 +1255,16 @@ export default function App() {
     const name = formData.get('name') as string;
     const password = formData.get('password') as string;
     const campus = formData.get('campus') as string;
+    const student_id = formData.get('student_id') as string;
+    const program = formData.get('program') as string;
+    const year_level = formData.get('year_level') as string;
 
     setIsAuthLoading(true);
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, campus })
+        body: JSON.stringify({ name, email, password, campus, student_id, program, year_level })
       });
 
       const data = await res.json();
@@ -1263,8 +1374,164 @@ export default function App() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar (Special Features) */}
+          <div className="lg:col-span-1 space-y-8 order-2 lg:order-1">
+            <div className="card-gold p-6 rounded-3xl relative overflow-hidden group cursor-pointer" onClick={() => { setActiveRoom('dm-ai-assistant'); setView('messenger'); }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-2xl bg-indigo-500/20 text-indigo-400">
+                    <Bot size={24} />
+                  </div>
+                  <span className="px-2 py-1 rounded-full bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider">Special</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors">JARVIS</h3>
+                <p className="text-gray-400 text-xs leading-relaxed mb-4">
+                  Your advanced AI companion. Ask anything about MSU, academics, or general knowledge.
+                </p>
+                <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold">
+                  Launch Assistant <ArrowRight size={14} />
+                </div>
+              </div>
+              {/* Decorative AI lines */}
+              <div className="absolute -bottom-4 -right-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Bot size={80} />
+              </div>
+            </div>
+
+            <div className="card-gold p-6 rounded-3xl">
+              <h3 className="font-bold mb-4 flex items-center gap-2"><Globe size={18} className="text-amber-500" /> Campus Information</h3>
+              <div className="space-y-3">
+                {CAMPUSES.map((c) => (
+                  <div key={c.slug} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-lg">
+                        <CampusLogo slug={c.slug} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors">{c.name}</h4>
+                          <button 
+                            onClick={() => setSelectedCampus(c)}
+                            className="text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 hover:bg-amber-500 hover:text-black transition-colors"
+                          >
+                            About
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 mb-2">
+                          <MapPin size={10} /> {c.location}
+                        </div>
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {c.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card-gold p-6 rounded-3xl">
+              <h3 className="font-bold mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger'), unread: messengerUnread },
+                  { name: 'Lost & Found', icon: <Search size={14} />, action: () => setView('lostfound') },
+                  { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
+                  { name: 'Grades', icon: <Sparkles size={14} /> },
+                  { name: 'Finance', icon: <ShieldCheck size={14} /> },
+                  { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
+                  { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
+                  { name: 'Updates', icon: <MessageSquare size={14} />, action: () => setView('newsfeed'), unread: updatesUnread },
+                  { name: 'Confession', icon: <Sparkles size={14} />, action: () => setView('confession') },
+                  { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
+                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
+                ].map(item => (
+                  <button 
+                    key={item.name} 
+                    onClick={() => item.action ? item.action() : null}
+                    className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium hover:bg-amber-500 hover:text-black transition-all flex flex-col items-center gap-2 relative group"
+                  >
+                    {(item as any).unread > 0 && (
+                      <motion.span
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ 
+                          scale: [1, 1.2, 1],
+                          opacity: 1 
+                        }}
+                        transition={{
+                          scale: { repeat: Infinity, duration: 2, ease: "easeInOut" }
+                        }}
+                        className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-lg shadow-rose-900/40 z-10"
+                      >
+                        {(item as any).unread > 99 ? '99+' : (item as any).unread}
+                      </motion.span>
+                    )}
+                    {item.icon}
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-bold flex items-center gap-2"><BookOpen size={18} className="text-amber-500" /> Notes</h4>
+                <button
+                  onClick={() => {
+                    const palette = [
+                      'bg-amber-500/20 border-amber-500/30',
+                      'bg-rose-500/20 border-rose-500/30',
+                      'bg-emerald-500/20 border-emerald-500/30',
+                      'bg-sky-500/20 border-sky-500/30',
+                      'bg-purple-500/20 border-purple-500/30'
+                    ];
+                    const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+                    const color = palette[Math.floor(Math.random() * palette.length)];
+                    setStickyNotes(prev => [{ id, content: '', color, createdAt: new Date().toISOString() }, ...prev]);
+                  }}
+                  className="p-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
+                  title="Add note"
+                  aria-label="Add note"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              {stickyNotes.length === 0 ? (
+                <p className="text-sm text-gray-500">No notes yet. Use + to create a sticky note.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto scrollbar-hide">
+                  {stickyNotes.slice(0, 4).map(n => (
+                    <div key={n.id} className={`p-3 rounded-2xl border ${n.color} transition-all hover:scale-[1.02]`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
+                        <button
+                          className="text-xs text-white/60 hover:text-white transition-colors"
+                          onClick={() => setStickyNotes(prev => prev.filter(x => x.id !== n.id))}
+                          title="Delete note"
+                          aria-label="Delete note"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <textarea
+                        value={n.content}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setStickyNotes(prev => prev.map(x => x.id === n.id ? { ...x, content: v } : x));
+                        }}
+                        placeholder="Write a note…"
+                        className="w-full h-28 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none resize-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Main Feed */}
-          <div className="lg:col-span-3 space-y-8">
+          <div className="lg:col-span-3 space-y-8 order-1 lg:order-2">
             <div className="card-gold p-8 rounded-3xl">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Sparkles className="text-amber-500" size={20} /> Confession Wall
@@ -1411,152 +1678,10 @@ export default function App() {
               </div>
             </div>
           </div>
-
-          {/* Right Side Panel */}
-          <div className="space-y-8">
-            <div className="card-gold p-6 rounded-3xl">
-              <h3 className="font-bold mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger'), unread: messengerUnread },
-                  { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
-                  { name: 'Grades', icon: <Sparkles size={14} /> },
-                  { name: 'Finance', icon: <ShieldCheck size={14} /> },
-                  { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
-                  { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
-                  { name: 'Updates', icon: <MessageSquare size={14} />, action: () => setView('newsfeed'), unread: updatesUnread },
-                  { name: 'Confession', icon: <Sparkles size={14} />, action: () => setView('confession') },
-                  { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
-                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
-                ].map(item => (
-                  <button 
-                    key={item.name} 
-                    onClick={() => item.action ? item.action() : null}
-                    className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium hover:bg-amber-500 hover:text-black transition-all flex flex-col items-center gap-2 relative group"
-                  >
-                    {(item as any).unread > 0 && (
-                      <motion.span
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ 
-                          scale: [1, 1.2, 1],
-                          opacity: 1 
-                        }}
-                        transition={{
-                          scale: { repeat: Infinity, duration: 2, ease: "easeInOut" }
-                        }}
-                        className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-lg shadow-rose-900/40 z-10"
-                      >
-                        {(item as any).unread > 99 ? '99+' : (item as any).unread}
-                      </motion.span>
-                    )}
-                    {item.icon}
-                    {item.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="card-gold p-6 rounded-3xl">
-              <h3 className="font-bold mb-4 flex items-center gap-2"><Globe size={18} className="text-amber-500" /> Campus Information</h3>
-              <div className="space-y-3">
-                {CAMPUSES.map((c) => (
-                  <div key={c.slug} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-lg">
-                        <CampusLogo slug={c.slug} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors">{c.name}</h4>
-                          <button 
-                            onClick={() => setSelectedCampus(c)}
-                            className="text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 hover:bg-amber-500 hover:text-black transition-colors"
-                          >
-                            About
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 mb-2">
-                          <MapPin size={10} /> {c.location}
-                        </div>
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                          {c.description}
-                        </p>
-                        <div className="flex gap-3 mt-3 pt-3 border-t border-white/5">
-                           <div className="text-[10px] text-gray-500">
-                             <span className="text-amber-500 font-bold">{c.stats.students}</span> Students
-                           </div>
-                           <div className="text-[10px] text-gray-500">
-                             <span className="text-amber-500 font-bold">{c.stats.courses}</span> Programs
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold flex items-center gap-2"><BookOpen size={18} className="text-amber-500" /> Notes</h4>
-                <button
-                  onClick={() => {
-                    const palette = [
-                      'bg-amber-500/20 border-amber-500/30',
-                      'bg-rose-500/20 border-rose-500/30',
-                      'bg-emerald-500/20 border-emerald-500/30',
-                      'bg-sky-500/20 border-sky-500/30',
-                      'bg-purple-500/20 border-purple-500/30'
-                    ];
-                    const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-                    const color = palette[Math.floor(Math.random() * palette.length)];
-                    setStickyNotes(prev => [{ id, content: '', color, createdAt: new Date().toISOString() }, ...prev]);
-                  }}
-                  className="p-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
-                  title="Add note"
-                  aria-label="Add note"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-              {stickyNotes.length === 0 ? (
-                <p className="text-sm text-gray-500">No notes yet. Use + to create a sticky note.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto scrollbar-hide">
-                  {stickyNotes.slice(0, 4).map(n => (
-                    <div key={n.id} className={`p-3 rounded-2xl border ${n.color} transition-all hover:scale-[1.02]`}>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
-                        <button
-                          className="text-xs text-white/60 hover:text-white transition-colors"
-                          onClick={() => setStickyNotes(prev => prev.filter(x => x.id !== n.id))}
-                          title="Delete note"
-                          aria-label="Delete note"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <textarea
-                        value={n.content}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setStickyNotes(prev => prev.map(x => x.id === n.id ? { ...x, content: v } : x));
-                        }}
-                        placeholder="Write a note…"
-                        className="w-full h-28 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none resize-none"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Feedbacks moved to its own view via Quick Actions */}
-          </div>
         </div>
       </div>
     </div>
-  );
+    );
   };
 
   const renderHome = () => (
@@ -1629,7 +1754,7 @@ export default function App() {
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         className="relative z-10 flex flex-col items-center"
       >
         <div className="mb-8" />
@@ -1773,53 +1898,96 @@ export default function App() {
                 <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
-              <form className="space-y-6" onSubmit={handleSignup}>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <input 
-                    name="name"
-                    type="text" 
-                    placeholder="Juan Dela Cruz"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-                    required
-                  />
+              <form className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 scrollbar-hide" onSubmit={handleSignup}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Full Name</label>
+                    <input 
+                      name="name"
+                      type="text" 
+                      placeholder="Juan Dela Cruz"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Student ID</label>
+                    <input 
+                      name="student_id"
+                      type="text" 
+                      placeholder="2024-0001"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                      required
+                    />
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Course / Program</label>
+                    <input 
+                      name="program"
+                      type="text" 
+                      placeholder="BS Computer Science"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Year Level</label>
+                    <select 
+                      name="year_level"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                      required
+                    >
+                      <option value="1st" className="bg-[#0a0502]">1st Year</option>
+                      <option value="2nd" className="bg-[#0a0502]">2nd Year</option>
+                      <option value="3rd" className="bg-[#0a0502]">3rd Year</option>
+                      <option value="4th" className="bg-[#0a0502]">4th Year</option>
+                      <option value="5th" className="bg-[#0a0502]">5th Year</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Gmail Address</label>
                   <input 
                     name="email"
                     type="email" 
                     placeholder="juan.delacruz@gmail.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                     pattern=".+@gmail\.com"
                     title="Please use a valid @gmail.com address"
                   />
                 </div>
+                
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Campus</label>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Campus</label>
                   <select 
                     name="campus"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   >
                     {CAMPUSES.map(c => <option key={c.slug} value={c.name} className="bg-[#0a0502]">{c.name}</option>)}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">Password</label>
                   <input 
                     name="password"
                     type="password" 
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
+                
                 <button 
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
@@ -1924,11 +2092,11 @@ export default function App() {
     const activeCampus = selectedCampus || CAMPUSES[0];
 
     return (
-      <div className="h-full w-full bg-[#0a0502] flex overflow-hidden">
+      <div className="h-full w-full bg-[#0a0502] flex flex-col md:flex-row overflow-hidden">
         {/* Sidebar - Campus List */}
-        <div className="w-80 border-r border-white/5 flex flex-col shrink-0 bg-black/40 backdrop-blur-md hidden md:flex">
+        <div className="w-full md:w-80 border-r border-white/5 flex flex-col shrink-0 bg-black/40 backdrop-blur-md">
           <div className="p-6 border-b border-white/5 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-metallic-gold">MSU System</h2>
+            <h2 className="text-xl font-bold text-white">MSU <span className="text-amber-500">System</span></h2>
             <button onClick={() => setView('home')} className="text-gray-500 hover:text-white"><X /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
@@ -1936,88 +2104,140 @@ export default function App() {
               <button
                 key={campus.slug}
                 onClick={() => setSelectedCampus(campus)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeCampus.slug === campus.slug ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'}`}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all group ${activeCampus.slug === campus.slug ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:bg-white/5'}`}
               >
-                <div className="w-8 h-8 shrink-0">
+                <div className="w-10 h-10 shrink-0 rounded-xl overflow-hidden shadow-inner">
                   <CampusLogo slug={campus.slug} />
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-bold truncate">{campus.name}</p>
-                  <p className={`text-[10px] ${activeCampus.slug === campus.slug ? 'text-black/60' : 'text-gray-500'}`}>{campus.location}</p>
+                <div className="text-left min-w-0">
+                  <p className="text-sm font-black truncate uppercase tracking-tight">{campus.name}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${activeCampus.slug === campus.slug ? 'text-black/60' : 'text-gray-500'}`}>{campus.location}</p>
                 </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Main Content - Feed Style */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto scrollbar-hide">
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto scrollbar-hide bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-fixed opacity-95">
           {/* Cover Area */}
-          <div className="relative h-48 md:h-64 shrink-0 overflow-hidden bg-gradient-to-br from-amber-900/40 to-black">
-            <div className="absolute inset-0 flex items-center justify-center opacity-10">
-              <CampusLogo slug={activeCampus.slug} className="w-96 h-96" />
+          <div className="relative h-64 md:h-80 shrink-0 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#0a0502]" />
+            <div className="absolute inset-0 flex items-center justify-center opacity-5">
+              <CampusLogo slug={activeCampus.slug} className="w-[500px] h-[500px]" />
             </div>
-            <div className="absolute bottom-6 left-8 flex items-end gap-6">
-              <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden bg-black/60 border-4 border-black/40 p-4 backdrop-blur-md">
-                <CampusLogo slug={activeCampus.slug} />
+            
+            <div className="absolute bottom-8 left-8 right-8 flex flex-col md:flex-row items-end justify-between gap-6">
+              <div className="flex items-end gap-6">
+                <div className="w-24 h-24 md:w-36 md:h-36 rounded-[2.5rem] overflow-hidden bg-black/60 border-4 border-white/10 p-6 backdrop-blur-xl shadow-2xl relative group">
+                  <CampusLogo slug={activeCampus.slug} />
+                  <div className="absolute inset-0 bg-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <div className="pb-2">
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    key={activeCampus.slug}
+                  >
+                    <h1 className="text-4xl md:text-6xl font-black text-white mb-2 tracking-tighter drop-shadow-2xl uppercase">
+                      {activeCampus.name}
+                    </h1>
+                    <div className="flex items-center gap-4">
+                      <p className="text-amber-500 flex items-center gap-1.5 font-bold text-xs uppercase tracking-[0.2em]"><MapPin size={14} /> {activeCampus.location}</p>
+                      <span className="w-1 h-1 rounded-full bg-white/20" />
+                      <p className="text-gray-500 font-bold text-xs uppercase tracking-[0.2em]">Established 1961</p>
+                    </div>
+                  </motion.div>
+                </div>
               </div>
-              <div className="pb-2">
-                <h1 className="text-3xl md:text-5xl font-bold text-white mb-1 drop-shadow-2xl">{activeCampus.name}</h1>
-                <p className="text-amber-400 flex items-center gap-1 font-medium"><MapPin size={16} /> {activeCampus.location}</p>
+              
+              <div className="flex gap-3">
+                <button className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-white hover:bg-white/10 transition-all backdrop-blur-md">
+                  Official Website
+                </button>
+                <button className="px-6 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20">
+                  Campus Map
+                </button>
               </div>
             </div>
-            <button 
-              onClick={() => setView('home')}
-              className="md:hidden absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
-            >
-              <X size={20} />
-            </button>
           </div>
 
-          {/* Feed Grid */}
-          <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-6xl mx-auto w-full">
-            {/* Left/Middle: The Newsfeed */}
-            <div className="flex-1 space-y-6">
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-xl">
-                <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <MessageSquare className="text-amber-500" size={20} /> Campus Board
-                </h4>
-                <CampusNewsfeed campus={activeCampus} />
-              </div>
+          {/* Content Grid */}
+          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-8 p-8 max-w-7xl mx-auto w-full">
+            {/* Left: Stats & Info */}
+            <div className="xl:col-span-4 space-y-8">
+              <section className="p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl">
+                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-amber-500/60 mb-6">Campus Overview</h3>
+                <p className="text-gray-300 text-sm leading-relaxed mb-8 font-medium italic">
+                  "{activeCampus.description}"
+                </p>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between group hover:border-amber-500/30 transition-all">
+                    <div>
+                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Student Population</p>
+                      <p className="text-2xl font-black text-white">{activeCampus.stats.students}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                      <Users size={24} />
+                    </div>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between group hover:border-amber-500/30 transition-all">
+                    <div>
+                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Academic Programs</p>
+                      <p className="text-2xl font-black text-white">{activeCampus.stats.courses}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                      <BookOpen size={24} />
+                    </div>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between group hover:border-amber-500/30 transition-all">
+                    <div>
+                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Faculty Members</p>
+                      <p className="text-2xl font-black text-white">850+</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                      <ShieldCheck size={24} />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md">
+                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-amber-500/60 mb-6">Official Channels</h3>
+                <div className="space-y-3">
+                  {[
+                    { name: 'Chancellor\'s Office', icon: <ShieldCheck size={16} /> },
+                    { name: 'Registrar Updates', icon: <Bell size={16} /> },
+                    { name: 'Student Council', icon: <Users size={16} /> },
+                    { name: 'Campus Security', icon: <ShieldCheck size={16} /> }
+                  ].map(channel => (
+                    <button key={channel.name} className="w-full flex items-center justify-between px-5 py-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-amber-500/20 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <span className="text-amber-500 group-hover:scale-110 transition-transform">{channel.icon}</span>
+                        <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{channel.name}</span>
+                      </div>
+                      <ChevronRight size={14} className="text-gray-600 group-hover:text-amber-500 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
 
-            {/* Right: Info Panel */}
-            <div className="w-full lg:w-80 space-y-6 shrink-0">
-              <div className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl">
-                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">About Campus</h4>
-                <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                  {activeCampus.description}
-                </p>
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Students</p>
-                      <p className="text-lg font-bold text-white">{activeCampus.stats.students}</p>
-                    </div>
-                    <Users size={20} className="text-amber-500/50" />
-                  </div>
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Programs</p>
-                      <p className="text-lg font-bold text-white">{activeCampus.stats.courses}</p>
-                    </div>
-                    <BookOpen size={20} className="text-amber-500/50" />
+            {/* Right: Newsfeed */}
+            <div className="xl:col-span-8 space-y-8">
+              <div className="p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                    <MessageSquare className="text-amber-500" size={24} /> 
+                    Campus <span className="text-amber-500">Newsfeed</span>
+                  </h3>
+                  <div className="flex gap-2">
+                    <button className="p-2 rounded-lg bg-white/5 text-gray-500 hover:text-white transition-colors"><Search size={18} /></button>
+                    <button className="p-2 rounded-lg bg-white/5 text-gray-500 hover:text-white transition-colors"><Bell size={18} /></button>
                   </div>
                 </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl">
-                <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">Official Channels</h4>
-                <div className="space-y-3">
-                  <button className="w-full text-left px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Campus Announcements</button>
-                  <button className="w-full text-left px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Help & Support</button>
-                  <button className="w-full text-left px-4 py-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs transition-colors">Student Council</button>
-                </div>
+                <CampusNewsfeed campus={activeCampus} />
               </div>
             </div>
           </div>
@@ -2394,58 +2614,114 @@ export default function App() {
   );
 
   const renderFeedbacks = () => (
-    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
-      <div className="max-w-3xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Feedbacks</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12 overflow-y-auto scrollbar-hide">
+      <div className="max-w-4xl mx-auto pb-20">
+        <header className="flex justify-between items-center mb-12">
+          <div>
+            <h2 className="text-4xl font-black text-white tracking-tight">Feedback <span className="text-amber-500">Hub</span></h2>
+            <p className="text-gray-500 text-sm mt-1">Help us improve the ONE MSU ecosystem.</p>
+          </div>
+          <button onClick={() => setView('dashboard')} className="p-3 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-all hover:scale-110">
+            <X size={24} />
+          </button>
         </header>
-        <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/20 to-transparent border border-amber-500/20">
-          <h3 className="font-bold mb-2 flex items-center gap-2"><Info size={16} /> Share your thoughts</h3>
-          <p className="text-xs text-gray-400 mb-4">We value your suggestions and comments.</p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!user || !feedbackText.trim()) return;
-              fetch('/api/feedbacks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, content: feedbackText.trim() })
-              })
-                .then((r) => r.json())
-                .then((res) => {
-                  if (res.success) {
-                    setFeedbacks((prev) => [res.item, ...prev]);
-                    setFeedbackText('');
-                  }
-                });
-            }}
-            className="space-y-3"
-          >
-            <textarea
-              value={feedbackText}
-              onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="Type your feedback..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
-              rows={4}
-            />
-            <button
-              type="submit"
-              disabled={!user}
-              className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors disabled:opacity-50"
-            >
-              Post Feedback
-            </button>
-          </form>
-        </div>
-        <div className="mt-6 space-y-3">
-          {feedbacks.map((f) => (
-            <div key={f.id} className="p-4 rounded-2xl bg-white/5 border border-white/10">
-              <div className="text-sm text-gray-300">{f.content}</div>
-              <div className="text-[10px] text-gray-500 mt-1">{new Date(f.timestamp).toLocaleString()}</div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <div className="p-8 rounded-3xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 sticky top-8">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+                <MessageSquare size={20} className="text-amber-500" /> 
+                Submit Feedback
+              </h3>
+              <p className="text-xs text-gray-400 mb-6 leading-relaxed">Your suggestions directly influence the future of this platform. We review every submission.</p>
+              
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!user || !feedbackText.trim()) return;
+                  fetch('/api/feedbacks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.id, content: feedbackText.trim() })
+                  })
+                    .then((r) => r.json())
+                    .then((res) => {
+                      if (res.success) {
+                        setFeedbacks((prev) => [res.item, ...prev]);
+                        setFeedbackText('');
+                      }
+                    });
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Your Message</label>
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="What's on your mind?"
+                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-4 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-all min-h-[150px] resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!user || !feedbackText.trim()}
+                  className="w-full py-4 rounded-2xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-all shadow-lg shadow-amber-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Send Feedback
+                </button>
+              </form>
             </div>
-          ))}
-          {feedbacks.length === 0 && <div className="text-sm text-gray-500">No feedback yet.</div>}
+          </div>
+
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between mb-4 px-2">
+              <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Recent Submissions</h4>
+              <div className="flex gap-2">
+                <span className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] text-gray-500">All</span>
+                <span className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] text-gray-500">My Feedback</span>
+              </div>
+            </div>
+
+            {feedbacks.map((f) => (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                key={f.id} 
+                className="p-6 rounded-3xl bg-white/5 border border-white/10 hover:border-white/20 transition-all group"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+                      <UserIcon size={20} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">Anonymous MSUan</div>
+                      <div className="text-[10px] text-gray-500">{new Date(f.timestamp).toLocaleDateString()} • {new Date(f.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${f.id % 3 === 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                    {f.id % 3 === 0 ? 'Resolved' : 'Pending'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-300 leading-relaxed">{f.content}</p>
+                <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-4">
+                  <button className="text-[10px] font-bold text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+                    <Heart size={12} /> Helpful
+                  </button>
+                  <button className="text-[10px] font-bold text-gray-500 hover:text-white transition-colors flex items-center gap-1">
+                    <MessageCircle size={12} /> Comment
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            {feedbacks.length === 0 && (
+              <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                <Info className="mx-auto mb-4 text-gray-600" size={40} />
+                <p className="text-gray-500">No feedback submissions yet.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -2699,211 +2975,403 @@ export default function App() {
 
   const renderProfile = () => (
     <div className="h-full w-full bg-[#0a0502] text-gray-200 p-4 md:p-12 overflow-y-auto scrollbar-hide">
-      <div className="max-w-3xl mx-auto pb-20">
-        <header className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-metallic-gold">Profile</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
+      <div className="max-w-4xl mx-auto pb-20">
+        <header className="flex justify-between items-center mb-12">
+          <h2 className="text-4xl font-black text-white tracking-tight">Student <span className="text-amber-500">Identity</span></h2>
+          <button onClick={() => setView('dashboard')} className="p-3 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-all hover:scale-110">
+            <X size={24} />
+          </button>
         </header>
-        <div className="rounded-3xl overflow-hidden border border-white/10 bg-white/5">
-          <div 
-            className="h-40 md:h-56 w-full bg-gradient-to-br from-amber-900/30 to-black relative group cursor-pointer"
-            style={{ backgroundImage: (tempCover || user?.cover_photo) ? `url(${tempCover || user.cover_photo})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = 'image/*,.gif';
-              input.onchange = async (e: any) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async () => {
-                  const dataUrl = reader.result as string;
-                  setTempCover(dataUrl);
-                  const res = await fetch('/api/upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dataUrl })
-                  }).then(r => r.json());
-                  if (res.success && user) {
-                    const upRes = await fetch(`/api/profile/${user.id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ cover_photo: res.url })
-                    }).then(r => r.json());
-                    if (upRes.success) {
-                      setUser(upRes.user);
-                      setProfileData(prev => ({ ...prev, cover_photo: res.url }));
-                      setTempCover(null);
-                    }
-                  }
-                };
-                reader.readAsDataURL(file);
-              };
-              input.click();
-            }}
+
+        {/* ID Card Design */}
+        <div className="relative group">
+          <motion.div 
+            initial={{ rotateY: -10, opacity: 0 }}
+            animate={{ rotateY: 0, opacity: 1 }}
+            className="w-full max-w-md mx-auto aspect-[1.58/1] bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] rounded-3xl border-2 border-white/10 shadow-2xl overflow-hidden relative preserve-3d"
           >
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-sm font-bold">
-              Change Cover Photo
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-5 pointer-events-none">
+              <Logo className="w-full h-full scale-150 rotate-12" />
             </div>
-            <div className="absolute -bottom-10 left-6">
-              <div 
-                className="w-24 h-24 rounded-full ring-4 ring-[#0a0502] overflow-hidden bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold relative group/avatar cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*,.gif';
-                  input.onchange = async (ev: any) => {
-                    const file = ev.target.files?.[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = async () => {
-                      const dataUrl = reader.result as string;
-                      setTempAvatar(dataUrl);
-                      const res = await fetch('/api/upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ dataUrl })
-                      }).then(r => r.json());
-                      if (res.success && user) {
-                        const upRes = await fetch(`/api/profile/${user.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ avatar: res.url })
-                        }).then(r => r.json());
-                        if (upRes.success) {
-                          setUser(upRes.user);
-                          setProfileData(prev => ({ ...prev, avatar: res.url }));
-                          setTempAvatar(null);
-                        }
-                      }
-                    };
-                    reader.readAsDataURL(file);
-                  };
-                  input.click();
-                }}
-              >
-                {(tempAvatar || user?.avatar) ? <img src={tempAvatar || user.avatar} alt="" className="w-full h-full object-cover" /> : (user?.name || 'U')[0]}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                  Change
+            
+            {/* Header Strip */}
+            <div className="h-16 bg-gradient-to-r from-amber-600 to-amber-400 flex items-center px-6 justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-lg p-1.5 backdrop-blur-md">
+                  <Logo className="w-full h-full" />
+                </div>
+                <div>
+                  <h3 className="text-black font-black text-sm leading-none uppercase tracking-tighter">Mindanao State University</h3>
+                  <p className="text-black/70 text-[8px] font-bold uppercase tracking-widest mt-0.5">System Digital Identity</p>
                 </div>
               </div>
+              <div className="text-right">
+                <p className="text-black font-black text-xs uppercase tracking-widest">ONE MSU</p>
+              </div>
             </div>
-          </div>
-          <div className="px-6 pt-12 pb-6">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-              <div>
-                <div className="text-2xl font-bold text-white flex items-center gap-2">
-                  {user?.name || 'MSUan'}
-                  {isVerified(user?.email) && (
-                    <span className="p-1 rounded-full bg-amber-500 text-black" title="Verified">
-                      <ShieldCheck size={14} />
-                    </span>
+
+            <div className="p-8 flex gap-8">
+              {/* Profile Picture Area */}
+              <div className="shrink-0">
+                <div className="w-32 h-32 rounded-2xl border-4 border-white/10 overflow-hidden bg-black/40 relative group/pic">
+                  {(tempAvatar || user?.avatar) ? (
+                    <img src={tempAvatar || user.avatar} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl font-black text-amber-500/20">
+                      {user?.name?.[0] || 'M'}
+                    </div>
                   )}
-                  {user?.email === 'xandercamarin@gmail.com' && (
-                    <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[10px] uppercase tracking-wider font-bold shadow-lg shadow-rose-500/20" title="Founder">
-                      Founder
-                    </span>
-                  )}
+                  <button 
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = async (ev: any) => {
+                        const file = ev.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                          const dataUrl = reader.result as string;
+                          setTempAvatar(dataUrl);
+                          const res = await fetch('/api/upload', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dataUrl })
+                          }).then(r => r.json());
+                          if (res.success && user) {
+                            const upRes = await fetch(`/api/profile/${user.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ avatar: res.url })
+                            }).then(r => r.json());
+                            if (upRes.success) {
+                              setUser(upRes.user);
+                              setTempAvatar(null);
+                            }
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      };
+                      input.click();
+                    }}
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover/pic:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold uppercase"
+                  >
+                    Update
+                  </button>
                 </div>
-                
-                <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-[11px] text-gray-400 uppercase tracking-widest font-bold">
-                  {user?.campus && (
-                    <div className="flex items-center gap-1.5"><MapPin size={12} className="text-amber-500" /> {user.campus}</div>
-                  )}
-                  {user?.program && (
-                    <div className="flex items-center gap-1.5"><BookOpen size={12} className="text-amber-500" /> {user.program}</div>
-                  )}
-                  {user?.year_level && (
-                    <div className="flex items-center gap-1.5"><Sparkles size={12} className="text-amber-500" /> Year {user.year_level}</div>
-                  )}
-                  {user?.department && (
-                    <div className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-amber-500" /> {user.department}</div>
-                  )}
+                <div className="mt-4 text-center">
+                  <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mb-1">Student ID</div>
+                  <div className="text-sm font-mono font-bold text-white tracking-widest">
+                    {user?.student_id || '2024-XXXX'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Area */}
+              <div className="flex-1 flex flex-col justify-between py-1">
+                <div>
+                  <div className="text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] mb-1">Full Name</div>
+                  <h4 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-4">
+                    {user?.name || 'Student Name'}
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[8px] text-gray-500 font-black uppercase tracking-[0.2em] mb-0.5">Course / Program</div>
+                      <p className="text-[10px] font-bold text-gray-200 uppercase truncate">
+                        {user?.program || 'Not Set'}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-gray-500 font-black uppercase tracking-[0.2em] mb-0.5">Year Level</div>
+                      <p className="text-[10px] font-bold text-gray-200 uppercase">
+                        {user?.year_level ? `${user.year_level} Year` : 'Not Set'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {user?.bio && <div className="mt-4 text-sm text-gray-300 leading-relaxed max-w-xl">{(user as any).bio}</div>}
+                <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                  <div>
+                    <div className="text-[8px] text-gray-500 font-black uppercase tracking-[0.2em] mb-0.5">Campus</div>
+                    <p className="text-[10px] font-bold text-amber-500 uppercase">
+                      {user?.campus || 'MSU System'}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 opacity-20">
+                    <Logo />
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-white">0</div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Posts</div>
+            </div>
+            
+            {/* Holographic Overlays */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[60px] rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-500/5 blur-[60px] rounded-full translate-y-1/2 -translate-x-1/2" />
+          </motion.div>
+          
+          <div className="mt-12 flex justify-center gap-4">
+            <button
+              onClick={() => setProfileEditing(v => !v)}
+              className="px-8 py-3 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all font-bold text-sm"
+            >
+              {profileEditing ? 'Close Editor' : 'Update ID Details'}
+            </button>
+            <button className="px-8 py-3 rounded-2xl bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20">
+              Download Digital ID
+            </button>
+          </div>
+        </div>
+
+        {profileEditing && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-12 p-8 rounded-[2.5rem] bg-white/5 border border-white/10 backdrop-blur-xl"
+          >
+            <ProfileForm user={user} onSaved={(u) => { setUser(u); setProfileEditing(false); }} />
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+
+  const [lostFoundItems, setLostFoundItems] = useState<{ id: number; title: string; description: string; location: string; type: 'lost' | 'found'; status: 'open' | 'claimed'; timestamp: string; image_url?: string; user_id: number }[]>([]);
+  const [lostFoundForm, setLostFoundForm] = useState({ title: '', description: '', location: '', type: 'lost' as 'lost' | 'found', imagePreview: null as string | null });
+
+  useEffect(() => {
+    if (isLoggedIn && view === 'lostfound') {
+      fetch('/api/lostfound').then(r => r.json()).then(setLostFoundItems);
+    }
+  }, [isLoggedIn, view]);
+
+  const renderLostFound = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12 overflow-y-auto scrollbar-hide">
+      <div className="max-w-5xl mx-auto pb-20">
+        <header className="flex justify-between items-center mb-12">
+          <div>
+            <h2 className="text-4xl font-black text-white tracking-tight">Lost & <span className="text-amber-500">Found</span></h2>
+            <p className="text-gray-500 text-sm mt-1">Reuniting MSUans with their belongings.</p>
+          </div>
+          <button onClick={() => setView('dashboard')} className="p-3 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-all hover:scale-110">
+            <X size={24} />
+          </button>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20">
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2"><Plus size={18} className="text-amber-500" /> Report Item</h3>
+              <div className="space-y-4">
+                <div className="flex p-1 rounded-xl bg-black/40 border border-white/10">
+                  <button 
+                    onClick={() => setLostFoundForm(prev => ({ ...prev, type: 'lost' }))}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${lostFoundForm.type === 'lost' ? 'bg-amber-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                  >
+                    Lost
+                  </button>
+                  <button 
+                    onClick={() => setLostFoundForm(prev => ({ ...prev, type: 'found' }))}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${lostFoundForm.type === 'found' ? 'bg-amber-500 text-black' : 'text-gray-500 hover:text-white'}`}
+                  >
+                    Found
+                  </button>
                 </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-white">{profileData?.followers || 0}</div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Followers</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-white">{profileData?.following || 0}</div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Following</div>
-                </div>
-                <button
-                  onClick={() => setProfileEditing(v => !v)}
-                  className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-gray-200 hover:bg-white/20 transition-colors text-sm font-medium"
+                <input 
+                  placeholder="What did you lose/find?"
+                  value={lostFoundForm.title}
+                  onChange={e => setLostFoundForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                />
+                <textarea 
+                  placeholder="Describe the item..."
+                  value={lostFoundForm.description}
+                  onChange={e => setLostFoundForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50 min-h-[100px]"
+                />
+                <input 
+                  placeholder="Where? (e.g. Science Bldg)"
+                  value={lostFoundForm.location}
+                  onChange={e => setLostFoundForm(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                />
+                <label className="block w-full py-2 rounded-xl border border-dashed border-white/20 text-center text-xs text-gray-500 hover:border-amber-500/50 cursor-pointer transition-all">
+                  {lostFoundForm.imagePreview ? 'Change Image' : 'Add Photo'}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => setLostFoundForm(prev => ({ ...prev, imagePreview: reader.result as string }));
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {lostFoundForm.imagePreview && (
+                  <div className="relative rounded-xl overflow-hidden border border-white/10">
+                    <img src={lostFoundForm.imagePreview} className="w-full h-32 object-cover" />
+                    <button onClick={() => setLostFoundForm(prev => ({ ...prev, imagePreview: null }))} className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white"><X size={12} /></button>
+                  </div>
+                )}
+                <button 
+                  onClick={async () => {
+                    if (!user || !lostFoundForm.title) return;
+                    let imageUrl: string | undefined;
+                    if (lostFoundForm.imagePreview) {
+                      const up = await fetch('/api/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ dataUrl: lostFoundForm.imagePreview })
+                      }).then(r => r.json());
+                      if (up.success) imageUrl = up.url;
+                    }
+                    const res = await fetch('/api/lostfound', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ ...lostFoundForm, userId: user.id, imageUrl })
+                    }).then(r => r.json());
+                    if (res.success) {
+                      setLostFoundItems(prev => [res.item, ...prev]);
+                      setLostFoundForm({ title: '', description: '', location: '', type: 'lost', imagePreview: null });
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-all active:scale-95"
                 >
-                  {profileEditing ? 'Close Editor' : 'Edit Profile'}
+                  Post Report
                 </button>
               </div>
             </div>
           </div>
-        </div>
-        {profileEditing ? (
-          <div className="mt-6">
-            <ProfileForm user={user} onSaved={(u) => { setUser(u); setProfileEditing(false); }} />
-          </div>
-        ) : (
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="aspect-square rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 text-xs">
-                No posts
+
+          <div className="lg:col-span-3 space-y-6">
+            <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide pb-2">
+              {['All Items', 'Lost', 'Found', 'My Posts'].map(tab => (
+                <button key={tab} className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-gray-400 hover:text-white whitespace-nowrap">
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {lostFoundItems.map(item => (
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  key={item.id} 
+                  className="rounded-3xl bg-white/5 border border-white/10 overflow-hidden group hover:border-amber-500/30 transition-all"
+                >
+                  <div className="relative h-48 bg-black/40">
+                    {item.image_url ? (
+                      <img src={item.image_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-700">
+                        <Image size={48} />
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.type === 'lost' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                        {item.type}
+                      </span>
+                    </div>
+                    {item.status === 'claimed' && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <span className="px-4 py-2 border-2 border-amber-500 text-amber-500 font-black uppercase tracking-[0.2em] rotate-[-12deg]">Claimed</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6">
+                    <h4 className="font-bold text-white mb-2 line-clamp-1">{item.title}</h4>
+                    <p className="text-xs text-gray-400 line-clamp-2 mb-4 leading-relaxed">{item.description}</p>
+                    <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                      <div className="flex items-center gap-1"><MapPin size={12} className="text-amber-500" /> {item.location}</div>
+                      <div>{new Date(item.timestamp).toLocaleDateString()}</div>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-white/5 flex gap-2">
+                      <button className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold hover:bg-white/10 transition-all">Details</button>
+                      <button className="flex-1 py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold hover:bg-amber-500/20 transition-all">Contact</button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            {lostFoundItems.length === 0 && (
+              <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                <Search className="mx-auto mb-4 text-gray-600" size={40} />
+                <p className="text-gray-500">No items reported yet.</p>
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 
   const renderConfession = () => (
     <div className="h-full w-full bg-[#0a0502] text-gray-200 p-4 md:p-12 overflow-y-auto scrollbar-hide">
-      <div className="max-w-3xl mx-auto pb-20">
-        <header className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-metallic-gold">Confession</h2>
-          <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
-        </header>
-        <div className="card-gold p-6 rounded-3xl mb-8">
-          <div className="flex items-center gap-3 mb-3">
-            <label className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer">
-              Upload picture
-              <input
-                type="file"
-                accept="image/*,.gif"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) { setFreedomImagePreview(null); return; }
-                  const reader = new FileReader();
-                  reader.onload = () => setFreedomImagePreview(reader.result as string);
-                  reader.readAsDataURL(file);
-                }}
-                className="hidden"
-              />
-            </label>
-            {freedomImagePreview && <span className="text-xs text-amber-400">Image attached</span>}
+      <div className="max-w-4xl mx-auto pb-20">
+        <header className="flex justify-between items-center mb-12">
+          <div>
+            <h2 className="text-4xl font-black text-white tracking-tight">Freedom <span className="text-amber-500">Wall</span></h2>
+            <p className="text-gray-500 text-sm mt-1">Share your thoughts anonymously with the MSU community.</p>
           </div>
+          <button onClick={() => setView('dashboard')} className="p-3 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-all hover:scale-110">
+            <X size={24} />
+          </button>
+        </header>
+
+        <div className="p-8 rounded-3xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 mb-12">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500">
+              <Sparkles size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Create a Post</h3>
+              <p className="text-xs text-gray-500">Your identity will be hidden behind an anonymous alias.</p>
+            </div>
+          </div>
+
           <textarea
             value={freedomText}
             onChange={(e) => setFreedomText(e.target.value)}
-            placeholder="Post anonymously to the Confession..."
-            rows={3}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50"
+            placeholder="What's on your mind? Confess something..."
+            rows={4}
+            className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-all resize-none mb-4"
           />
-          {freedomImagePreview && (
-            <div className="mt-3 rounded-2xl overflow-hidden border border-white/10">
-              <img src={freedomImagePreview} alt="" className="w-full h-48 object-cover" />
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gray-400 hover:bg-white/10 cursor-pointer transition-colors">
+                <Image size={16} className="text-amber-500" />
+                {freedomImagePreview ? 'Change Image' : 'Attach Image'}
+                <input
+                  type="file"
+                  accept="image/*,.gif"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) { setFreedomImagePreview(null); return; }
+                    const reader = new FileReader();
+                    reader.onload = () => setFreedomImagePreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }}
+                  className="hidden"
+                />
+              </label>
+              {freedomImagePreview && (
+                <button 
+                  onClick={() => setFreedomImagePreview(null)}
+                  className="p-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
-          )}
-          <div className="mt-4 flex justify-between items-center">
-            <div className="text-xs text-gray-500 italic">Your post will be assigned a sequential anonymous ID (e.g. Anonymous #123)</div>
+
             <button
               onClick={async () => {
                 if (!user || !freedomText.trim()) return;
@@ -2927,30 +3395,59 @@ export default function App() {
                   setFreedomPosts((prev) => [res.item, ...prev]);
                 }
               }}
-              className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
+              className="px-8 py-3 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-all shadow-lg shadow-amber-900/20 active:scale-95"
             >
-              Post
+              Post Anonymously
             </button>
           </div>
+
+          {freedomImagePreview && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-6 rounded-2xl overflow-hidden border border-white/10 relative group"
+            >
+              <img src={freedomImagePreview} alt="" className="w-full max-h-96 object-cover" />
+            </motion.div>
+          )}
         </div>
-        <div className="space-y-4">
+
+        <div className="columns-1 md:columns-2 gap-6 space-y-6">
           {freedomPosts.map((p) => (
-            <div key={p.id} className="rounded-3xl overflow-hidden bg-white/5 border border-white/10">
-              {p.image_url && <img src={p.image_url} alt="" className="w-full max-h-72 object-cover" />}
-              <div className="p-4">
-                <div className="flex justify-between items-start">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              key={p.id} 
+              className="break-inside-avoid rounded-3xl overflow-hidden bg-white/5 border border-white/10 hover:border-white/20 transition-all group"
+            >
+              {p.image_url && (
+                <div className="relative overflow-hidden">
+                  <img src={p.image_url} alt="" className="w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              )}
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
                   <div>
-                    <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="text-sm font-bold text-amber-500 flex items-center gap-2">
                       {p.alias}
-                      {p.user_id && freedomPosts.find(x => x.id === p.id)?.user_id === user?.id && isOwner(user?.email) && (
-                        <span className="p-0.5 rounded-full bg-amber-500 text-black" title="Verified Owner">
-                          <ShieldCheck size={10} />
+                      {p.user_id && p.user_id === user?.id && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 text-[8px] font-bold uppercase tracking-wider border border-amber-500/30">
+                          You
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-gray-500">{p.campus} • {new Date(p.timestamp).toLocaleString()}</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">{p.campus} • {new Date(p.timestamp).toLocaleDateString()}</div>
                   </div>
-                  <div className="flex gap-3 text-xs">
+                  <div className="p-2 rounded-full bg-white/5 text-gray-500 group-hover:text-amber-500 transition-colors">
+                    <MoreHorizontal size={16} />
+                  </div>
+                </div>
+                
+                <p className="text-sm text-gray-200 leading-relaxed mb-6">{p.content}</p>
+                
+                <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                  <div className="flex items-center gap-4">
                     <button
                       onClick={() => {
                         fetch(`/api/freedomwall/${p.id}/react`, {
@@ -2961,32 +3458,31 @@ export default function App() {
                           if (res.success) setFreedomPosts((prev) => prev.map(x => x.id === p.id ? res.item : x));
                         });
                       }}
-                      className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                      className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-rose-500 transition-colors"
                     >
-                      Like {p.likes}
+                      <Heart size={16} className={p.likes > 0 ? 'fill-rose-500 text-rose-500' : ''} />
+                      {p.likes}
                     </button>
-                    <button
-                      onClick={() => {
-                        fetch(`/api/freedomwall/${p.id}/react`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'report' })
-                        }).then(r => r.json()).then(res => {
-                          if (res.success) setFreedomPosts((prev) => prev.map(x => x.id === p.id ? res.item : x));
-                        });
-                      }}
-                      className="px-3 py-1 rounded-full bg-white/10 text-gray-400 hover:bg-white/20"
-                    >
-                      Report {p.reports}
+                    <button className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-amber-500 transition-colors">
+                      <MessageCircle size={16} />
+                      0
                     </button>
                   </div>
+                  <button className="text-gray-500 hover:text-white transition-colors">
+                    <Share2 size={16} />
+                  </button>
                 </div>
-                <div className="mt-3 text-sm text-gray-200">{p.content}</div>
               </div>
-            </div>
+            </motion.div>
           ))}
-          {freedomPosts.length === 0 && <div className="text-sm text-gray-500">No posts yet.</div>}
         </div>
+        
+        {freedomPosts.length === 0 && (
+          <div className="text-center py-20">
+            <Sparkles className="mx-auto mb-4 text-gray-600" size={40} />
+            <p className="text-gray-500">The wall is empty. Be the first to confess.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3168,7 +3664,7 @@ export default function App() {
                 <Bot size={12} />
               </div>
               <div className="min-w-0 text-left">
-                <p className="text-sm font-bold truncate">ONEMSU AI Assistant</p>
+                <p className="text-sm font-bold truncate">JARVIS AI</p>
               </div>
             </div>
           </button>
@@ -3814,6 +4310,17 @@ export default function App() {
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
             {renderFeedbacks()}
+          </motion.div>
+        )}
+        {view === 'lostfound' && (
+          <motion.div
+            key="lostfound"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            {renderLostFound()}
           </motion.div>
         )}
         {view === 'messenger' && (
