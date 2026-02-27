@@ -515,6 +515,16 @@ const isVerified = (email?: string, u?: User | null) => {
     }
 
     const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
+    if (!savedDMs) {
+      setDirectMessageList([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedDMs);
+      setDirectMessageList(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setDirectMessageList([]);
     if (savedDMs) {
       setDirectMessageList(JSON.parse(savedDMs));
       return;
