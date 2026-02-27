@@ -525,7 +525,12 @@ const isVerified = (email?: string, u?: User | null) => {
       setDirectMessageList(Array.isArray(parsed) ? parsed : []);
     } catch {
       setDirectMessageList([]);
+    if (savedDMs) {
+      setDirectMessageList(JSON.parse(savedDMs));
+      return;
     }
+
+    setDirectMessageList([]);
   }, [user]);
 
   // Save DM list when it changes
