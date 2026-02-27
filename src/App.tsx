@@ -495,6 +495,11 @@ const isVerified = (email?: string, u?: User | null) => {
     }
   };
 
+  const responseMessage = (payload: any, fallback: string) => {
+    const message = payload?.message;
+    return typeof message === 'string' && message.trim() ? message : fallback;
+  };
+
   const virtuosoRef = useRef<any>(null);
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({}); // roomId -> names[]
@@ -561,13 +566,25 @@ const isVerified = (email?: string, u?: User | null) => {
   });
 
   useEffect(() => {
+    let animationFrameId = 0;
+
     const handleMouseMove = (e: MouseEvent) => {
-      const nx = (e.clientX / window.innerWidth - 0.5) * 2;
-      const ny = (e.clientY / window.innerHeight - 0.5) * 2;
-      setMouse({ x: nx, y: ny });
+      if (animationFrameId) return;
+      animationFrameId = window.requestAnimationFrame(() => {
+        const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+        const ny = (e.clientY / window.innerHeight - 0.5) * 2;
+        setMouse({ x: nx, y: ny });
+        animationFrameId = 0;
+      });
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
   }, []);
 
   useEffect(() => {
@@ -1209,19 +1226,18 @@ const isVerified = (email?: string, u?: User | null) => {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await res.json();
-      if (data.success) {
-        setTimeout(() => {
-          setUser(data.user);
-          setIsLoggedIn(true);
-          setIsLoginOpen(false);
-          setIsAuthLoading(false);
-        }, 6000);
+      const data = await safeJson(res);
+      if (res.ok && data.success) {
+        setUser(data.user);
+        setIsLoggedIn(true);
+        setIsLoginOpen(false);
+        setIsAuthLoading(false);
       } else {
-        alert(data.message);
+        alert(responseMessage(data, 'Login failed. Please check your credentials and try again.'));
         setIsAuthLoading(false);
       }
     } catch {
+      alert('Login failed. Please try again.');
       setIsAuthLoading(false);
     }
   };
@@ -1243,14 +1259,12 @@ const isVerified = (email?: string, u?: User | null) => {
         body: JSON.stringify({ name, email, password, campus, code })
       });
 
-      const data = await res.json();
-      if (data.success) {
-        setTimeout(() => {
-          setUser(data.user);
-          setIsLoggedIn(true);
-          setIsSignupOpen(false);
-          setIsAuthLoading(false);
-        }, 6000);
+      const data = await safeJson(res);
+      if (res.ok && data.success) {
+        setUser(data.user);
+        setIsLoggedIn(true);
+        setIsSignupOpen(false);
+        setIsAuthLoading(false);
       } else {
         if (String(data.message || '').toLowerCase().includes('exists')) {
           setIsSignupOpen(false);
@@ -1258,12 +1272,13 @@ const isVerified = (email?: string, u?: User | null) => {
           setIsLoginOpen(true);
           setTimeout(() => alert('Email already exists. Please log in or reset your password.'), 10);
         } else {
-          alert(data.message);
+          alert(responseMessage(data, 'Signup failed. Please review your details and try again.'));
         }
         setIsAuthLoading(false);
       }
     } catch {
       setIsAuthLoading(false);
+      alert('Signup failed. Please try again.');
     }
   };
 
@@ -1280,7 +1295,7 @@ const isVerified = (email?: string, u?: User | null) => {
     setTimeout(() => {
       handleLogout();
       setSigningOut(false);
-    }, 8000);
+    }, 250);
   };
 
   const handleForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
@@ -1294,19 +1309,20 @@ const isVerified = (email?: string, u?: User | null) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
-      }).then(r => r.json());
+      });
+      const data = await safeJson(res);
 
       setIsAuthLoading(false);
-      if (res.success) {
-        alert(res.message);
+      if (res.ok && data.success) {
+        alert(responseMessage(data, 'Reset instructions sent to your email.'));
         setIsForgotOpen(false);
         setIsLoginOpen(true);
       } else {
-        alert(res.message);
+        alert(responseMessage(data, 'Failed to send reset link. Please try again later.'));
       }
     } catch {
       setIsAuthLoading(false);
-      alert("Failed to send reset link. Please try again later.");
+      alert('Failed to send reset link. Please try again later.');
     }
   };
 
