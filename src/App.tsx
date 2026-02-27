@@ -283,33 +283,11 @@ const HomeNetworkBackground = () => {
 // --- Components ---
 
 const Logo = () => (
-  <svg viewBox="0 0 100 100" className="w-full h-full">
-    <defs>
-      <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#f9e7a3" />
-        <stop offset="50%" stopColor="#f5d36b" />
-        <stop offset="100%" stopColor="#b99740" />
-      </linearGradient>
-      <radialGradient id="bg-grad" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#1a120a" />
-        <stop offset="100%" stopColor="#0a0502" />
-      </radialGradient>
-    </defs>
-    <circle cx="50" cy="50" r="48" fill="none" stroke="url(#gold-grad)" strokeWidth="3" />
-    <circle cx="50" cy="50" r="43" fill="none" stroke="url(#gold-grad)" strokeWidth="1" strokeOpacity="0.4" />
-    <circle cx="50" cy="50" r="38" fill="url(#bg-grad)" />
-    <circle cx="82" cy="50" r="4" fill="#8e1212" />
-    <circle cx="72.6" cy="27.4" r="4" fill="#1a3a5a" />
-    <circle cx="50" cy="18" r="4" fill="#1b5e20" />
-    <circle cx="27.4" cy="27.4" r="4" fill="#01579b" />
-    <circle cx="18" cy="50" r="4" fill="#e65100" />
-    <circle cx="27.4" cy="72.6" r="4" fill="#33691e" />
-    <circle cx="50" cy="82" r="4" fill="#bf360c" />
-    <circle cx="72.6" cy="72.6" r="4" fill="#4a148c" />
-    <circle cx="50" cy="50" r="16" fill="#0f0a06" stroke="url(#gold-grad)" strokeWidth="1.5" />
-    <text x="50" y="54" textAnchor="middle" fill="url(#gold-grad)" fontSize="10" fontWeight="900" fontFamily="serif">MSU</text>
-    <circle cx="50" cy="50" r="34" fill="none" stroke="url(#gold-grad)" strokeWidth="0.6" strokeDasharray="3 3" />
-  </svg>
+  <img
+    src="https://cdn.builder.io/api/v1/image/assets%2F23368e21ff6f469fbe3b6cd7a12f765a%2F08f3caf3e05b4d4eaa2bdece65fb7125?format=webp&width=800&height=1200"
+    alt="ONEMSU Logo"
+    className="w-full h-full object-contain"
+  />
 );
 
 const JarvisLogo = () => (
@@ -483,7 +461,7 @@ const isVerified = (email?: string, u?: User | null) => {
       const timer = setTimeout(() => {
         setShowSplash(false);
         localStorage.setItem('onemsu_splash_shown', 'true');
-      }, 11000);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [showSplash]);
@@ -1238,7 +1216,7 @@ const isVerified = (email?: string, u?: User | null) => {
           setIsLoggedIn(true);
           setIsLoginOpen(false);
           setIsAuthLoading(false);
-        }, 1000);
+        }, 6000);
       } else {
         alert(data.message);
         setIsAuthLoading(false);
@@ -1272,7 +1250,7 @@ const isVerified = (email?: string, u?: User | null) => {
           setIsLoggedIn(true);
           setIsSignupOpen(false);
           setIsAuthLoading(false);
-        }, 1000);
+        }, 6000);
       } else {
         if (String(data.message || '').toLowerCase().includes('exists')) {
           setIsSignupOpen(false);
@@ -1887,17 +1865,12 @@ const isVerified = (email?: string, u?: User | null) => {
     <div className="relative flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 md:p-8 text-center overflow-hidden hero-metallic">
       <HomeNetworkBackground />
       {/* Navigation Header */}
-      <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 md:p-8 flex justify-between items-center z-50">
-        <div className="flex items-center gap-2 sm:gap-3 font-bold text-lg sm:text-xl cursor-pointer" onClick={() => setView('home')}>
-          <div
-            className="w-10 sm:w-12 h-10 sm:h-12"
-            role="button"
-            title="View logo"
-            onClick={(e) => { e.stopPropagation(); setIsLogoModalOpen(true); }}
-          >
+      <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-between items-center z-50">
+        <div className="flex items-center gap-2 md:gap-3 font-bold text-lg md:text-xl cursor-pointer" onClick={() => setView('home')}>
+          <div className="w-12 h-12 md:w-16 md:h-16 rounded-lg border-2 border-amber-500 p-1 bg-black/40 shrink-0">
             <Logo />
           </div>
-          <span className="hidden sm:inline tracking-tighter text-sm sm:text-base">ONE<span className="text-amber-500">MSU</span></span>
+          <span className="hidden sm:inline tracking-tighter text-sm md:text-base">ONE<span className="text-amber-500">MSU</span></span>
         </div>
         <div className="hidden md:flex items-center gap-6 md:gap-8 text-xs md:text-sm font-medium">
           <button onClick={() => setView('explorer')} className="text-gray-400 hover:text-white transition-colors">Campuses</button>
@@ -2129,32 +2102,31 @@ const isVerified = (email?: string, u?: User | null) => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl my-4 sm:my-auto mt-8 sm:mt-0"
+              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
-              <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6 md:mb-8">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-metallic-gold leading-tight">Connect to ONEMSU</h3>
-                <button onClick={() => setIsLoginOpen(false)} className="text-gray-500 hover:text-white shrink-0 p-1"><X size={20} className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+              <div className="flex justify-between items-center mb-6 md:mb-8">
+                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Connect to ONEMSU</h3>
+                <button onClick={() => setIsLoginOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
-              <form className="space-y-3 sm:space-y-4 md:space-y-6" onSubmit={handleLogin}>
+              <form className="space-y-4 md:space-y-6" onSubmit={handleLogin}>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Email / ID</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email / ID</label>
                   <input
                     name="email"
-                    type="text"
+                    type="email"
                     placeholder="e.g. juan.delacruz@msumain.edu.ph"
-                    defaultValue={loginPrefillEmail}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Password</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
                   <input
                     name="password"
                     type="password"
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
@@ -2174,14 +2146,14 @@ const isVerified = (email?: string, u?: User | null) => {
                 <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-2.5 sm:py-3 md:py-4 rounded-lg sm:rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 text-sm sm:text-base ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 6, repeat: 0, ease: "linear" }}
-                        className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-black/30 border-t-black rounded-full"
+                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Connecting...
                     </>
@@ -2191,8 +2163,41 @@ const isVerified = (email?: string, u?: User | null) => {
                 </button>
               </form>
 
-              <div className="mt-4 sm:mt-6 md:mt-8 pt-4 sm:pt-6 md:pt-8 border-t border-white/5 text-center">
-                <p className="text-xs sm:text-sm text-gray-500">
+              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5">
+                <h4 className="text-xs md:text-sm font-semibold text-gray-400 mb-4">Download ONEMSU App</h4>
+                <div className="grid grid-cols-3 gap-2 md:gap-3 mb-6 md:mb-8">
+                  <a
+                    href="#"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M3 5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5zm16 0H5v14h14V5z"/>
+                    </svg>
+                    <span className="text-xs text-gray-300">Windows</span>
+                  </a>
+                  <a
+                    href="#"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.38-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.08 2.29.74 3.08.8.905-.15 1.75-.72 2.95-.8 4.77.37 5.54 7.04 2.97 11.97z"/>
+                    </svg>
+                    <span className="text-xs text-gray-300">iOS</span>
+                  </a>
+                  <a
+                    href="#"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                    </svg>
+                    <span className="text-xs text-gray-300">Android</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <p className="text-sm text-gray-500">
                   Don't have an account? <button onClick={() => { setIsLoginOpen(false); setIsSignupOpen(true); }} className="text-amber-500 font-semibold hover:underline">Register here</button>
                 </p>
               </div>
@@ -2209,125 +2214,67 @@ const isVerified = (email?: string, u?: User | null) => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl my-4 sm:my-auto mt-8 sm:mt-0"
+              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
-              <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6 md:mb-8">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-metallic-gold leading-tight">Join ONEMSU</h3>
-                <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white shrink-0 p-1"><X size={20} className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+              <div className="flex justify-between items-center mb-6 md:mb-8">
+                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Join ONEMSU</h3>
+                <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white shrink-0"><X /></button>
               </div>
               
-              <form className="space-y-3 sm:space-y-4 md:space-y-6" onSubmit={handleSignup}>
+              <form className="space-y-4 md:space-y-6" onSubmit={handleSignup}>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Full Name</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
                   <input
                     name="name"
                     type="text"
                     placeholder="Juan Dela Cruz"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Email</label>
-                  <div className="flex gap-2">
-                    <input
-                      name="email"
-                      type="text"
-                      placeholder="email@example.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-                      required
-                    />
-                    {adminSettings.requireSignupCode === true && (
-                      <button
-                        type="button"
-                        onClick={async (ev) => {
-                          const form = (ev.currentTarget.closest('form')) as HTMLFormElement | null;
-                          if (!form) return;
-                          const fd = new FormData(form);
-                          const em = String(fd.get('email') || '');
-                          setSignupCodeSending(true);
-                          setSignupDevCode(null);
-                          try {
-                            const r = await fetch('/api/auth/request-code', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email: em })
-                            });
-                            const j = await r.json();
-                            if (j.success) {
-                              if (j.devCode) setSignupDevCode(j.devCode);
-                              alert('Verification code sent to your Gmail');
-                            } else {
-                              alert(j.message || 'Failed to send code');
-                            }
-                          } catch {
-                          } finally {
-                            setSignupCodeSending(false);
-                          }
-                        }}
-                        disabled={signupCodeSending}
-                        className="px-3 sm:px-4 rounded-lg sm:rounded-xl bg-white/10 border border-white/10 text-xs sm:text-sm text-gray-300 hover:bg-white/20 disabled:opacity-50"
-                      >
-                        {signupCodeSending ? 'Sending…' : 'Send Code'}
-                      </button>
-                    )}
-                  </div>
-                  {signupEmailExists === true && (
-                    <div className="mt-1 text-[11px] text-rose-400">
-                      This email is already registered. <button className="underline" onClick={() => { setIsSignupOpen(false); setLoginPrefillEmail(signupEmail); setIsLoginOpen(true); }}>Log in</button> or <button className="underline" onClick={() => { setIsSignupOpen(false); setIsForgotOpen(true); }}>reset password</button>.
-                    </div>
-                  )}
-                  {adminSettings.requireSignupCode === true && signupDevCode && (
-                    <div className="mt-2 text-[10px] text-gray-500">Dev code: {signupDevCode}</div>
-                  )}
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
+                  <input
+                    name="email"
+                    type="email"
+                    placeholder="juan.delacruz@gmail.com"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    required
+                    pattern=".+@gmail\.com"
+                    title="Please use a valid @gmail.com address"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Campus</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Campus</label>
                   <select
                     name="campus"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   >
                     {CAMPUSES.map(c => <option key={c.slug} value={c.name} className="bg-[#0a0502]">{c.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Password</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
                   <input
                     name="password"
                     type="password"
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
-                {adminSettings.requireSignupCode === true && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Verification Code</label>
-                    <input
-                      name="code"
-                      type="text"
-                      placeholder="6-digit code"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-                      inputMode="numeric"
-                      pattern="\\d{6}"
-                      title="Enter the 6-digit code sent to your Gmail"
-                    />
-                  </div>
-                )}
                 <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-2.5 sm:py-3 md:py-4 rounded-lg sm:rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 text-sm sm:text-base ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 6, repeat: 0, ease: "linear" }}
-                        className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-black/30 border-t-black rounded-full"
+                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Creating...
                     </>
@@ -2337,8 +2284,8 @@ const isVerified = (email?: string, u?: User | null) => {
                 </button>
               </form>
 
-              <div className="mt-4 sm:mt-6 md:mt-8 pt-4 sm:pt-6 md:pt-8 border-t border-white/5 text-center">
-                <p className="text-xs sm:text-sm text-gray-500">
+              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 text-center">
+                <p className="text-sm text-gray-500">
                   Already have an account? <button onClick={() => { setIsSignupOpen(false); setIsLoginOpen(true); }} className="text-amber-500 font-semibold hover:underline">Sign In</button>
                 </p>
               </div>
@@ -2355,40 +2302,40 @@ const isVerified = (email?: string, u?: User | null) => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-5 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl my-4 sm:my-auto mt-8 sm:mt-0"
+              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
             >
-              <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-metallic-gold leading-tight">Reset Password</h3>
-                <button onClick={() => setIsForgotOpen(false)} className="text-gray-500 hover:text-white shrink-0 p-1"><X size={20} className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Reset Password</h3>
+                <button onClick={() => setIsForgotOpen(false)} className="text-gray-500 hover:text-white shrink-0"><X /></button>
               </div>
 
-              <p className="text-gray-400 text-xs sm:text-sm mb-4 sm:mb-6 md:mb-8 leading-relaxed">
+              <p className="text-gray-400 text-sm mb-6 md:mb-8">
                 Enter your registered Gmail address and we'll send you a link to reset your password.
               </p>
-
-              <form className="space-y-3 sm:space-y-4 md:space-y-6" onSubmit={handleForgotPassword}>
+              
+              <form className="space-y-4 md:space-y-6" onSubmit={handleForgotPassword}>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 sm:mb-2">Email</label>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
                   <input
                     name="email"
-                    type="text"
-                      placeholder="email@example.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    type="email"
+                    placeholder="juan.delacruz@gmail.com"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
-                
+
                 <button
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-2.5 sm:py-3 md:py-4 rounded-lg sm:rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 text-sm sm:text-base ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 6, repeat: 0, ease: "linear" }}
-                        className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-black/30 border-t-black rounded-full"
+                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                        className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Sending Link...
                     </>
@@ -2398,10 +2345,10 @@ const isVerified = (email?: string, u?: User | null) => {
                 </button>
               </form>
 
-              <div className="mt-4 sm:mt-6 md:mt-8 pt-4 sm:pt-6 md:pt-8 border-t border-white/5 text-center">
-                <button
-                  onClick={() => { setIsForgotOpen(false); setIsLoginOpen(true); }}
-                  className="text-xs sm:text-sm text-gray-500 hover:text-amber-500 flex items-center justify-center gap-2 mx-auto transition-colors"
+              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 text-center">
+                <button 
+                  onClick={() => { setIsForgotOpen(false); setIsLoginOpen(true); }} 
+                  className="text-sm text-gray-500 hover:text-amber-500 flex items-center justify-center gap-2 mx-auto transition-colors"
                 >
                   <ArrowRight className="rotate-180 w-3.5 h-3.5 sm:w-4 sm:h-4" size={14} /> Back to Sign In
                 </button>
@@ -4586,7 +4533,9 @@ const isVerified = (email?: string, u?: User | null) => {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="w-56 h-56"
             >
-              <Logo />
+              <motion.div>
+                <Logo />
+              </motion.div>
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
