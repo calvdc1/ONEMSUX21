@@ -86,6 +86,89 @@ interface Campus {
   color: string;
 }
 
+interface Schedule {
+  id: number;
+  courseCode: string;
+  courseName: string;
+  instructor: string;
+  day: string;
+  time: string;
+  location: string;
+  campus: string;
+}
+
+interface Room {
+  id: number;
+  building: string;
+  number: string;
+  capacity: number;
+  type: string;
+  floor: number;
+  campus: string;
+  available?: boolean;
+}
+
+interface Scholarship {
+  id: number;
+  name: string;
+  description: string;
+  amount: string;
+  deadline: string;
+  requirements: string[];
+  campus: string;
+  link?: string;
+}
+
+interface Internship {
+  id: number;
+  company: string;
+  position: string;
+  description: string;
+  postedBy: string;
+  campus: string;
+  postedDate: string;
+  deadline?: string;
+  type?: string;
+}
+
+interface LostItem {
+  id: number;
+  user_id: number;
+  itemName: string;
+  description: string;
+  category: string;
+  location: string;
+  status: 'lost' | 'found';
+  image_url?: string;
+  postedDate: string;
+  campus: string;
+  contactName?: string;
+  contactPhone?: string;
+}
+
+interface CampusEvent {
+  id: number;
+  name: string;
+  date: string;
+  time: string;
+  location: string;
+  description: string;
+  capacity: number;
+  attendees: number;
+  campus: string;
+  image_url?: string;
+  rsvpUsers?: number[];
+}
+
+interface Building {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  description: string;
+  type: string;
+}
+
 // --- Constants ---
 
 const CAMPUSES: Campus[] = [
@@ -239,7 +322,7 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 };
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks'>('home');
+  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks' | 'schedule' | 'roomfinder' | 'scholarships' | 'internships' | 'campusmap' | 'lostandfound' | 'events'>('home');
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -306,6 +389,23 @@ export default function App() {
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Map<number, MediaStream>>(new Map());
+
+  // Utility Features State
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [scheduleFilter, setScheduleFilter] = useState('');
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomFilter, setRoomFilter] = useState({ building: '', capacity: 0 });
+  const [scholarships, setScholarships] = useState<Scholarship[]>([]);
+  const [scholarshipFilter, setScholarshipFilter] = useState('');
+  const [internships, setInternships] = useState<Internship[]>([]);
+  const [internshipFilter, setInternshipFilter] = useState('');
+  const [campusBuildings, setCampusBuildings] = useState<Building[]>([]);
+  const [lostItems, setLostItems] = useState<LostItem[]>([]);
+  const [newLostItem, setNewLostItem] = useState<Partial<LostItem>>({ status: 'lost', itemName: '', description: '', category: '', location: '' });
+  const [lostItemFilter, setLostItemFilter] = useState({ status: 'lost' as const, category: '' });
+  const [campusEvents, setCampusEvents] = useState<CampusEvent[]>([]);
+  const [eventFilter, setEventFilter] = useState('');
+  const [userRsvps, setUserRsvps] = useState<number[]>([]);
 
   const normalizeIncoming = (raw: any) => {
     // Accept both server styles: roomId vs room_id, senderId vs sender_id, etc.
@@ -1339,14 +1439,16 @@ export default function App() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger'), unread: messengerUnread },
-                  { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
-                  { name: 'Grades', icon: <Sparkles size={14} /> },
-                  { name: 'Finance', icon: <ShieldCheck size={14} /> },
-                  { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
+                  { name: 'Schedule', icon: <Clock size={14} />, action: () => setView('schedule') },
+                  { name: 'Room Finder', icon: <MapPin size={14} />, action: () => setView('roomfinder') },
+                  { name: 'Scholarships', icon: <Sparkles size={14} />, action: () => setView('scholarships') },
+                  { name: 'Internships', icon: <BookOpen size={14} />, action: () => setView('internships') },
+                  { name: 'Campus Map', icon: <Globe size={14} />, action: () => setView('campusmap') },
+                  { name: 'Lost & Found', icon: <Search size={14} />, action: () => setView('lostandfound') },
+                  { name: 'Events', icon: <Heart size={14} />, action: () => setView('events') },
                   { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
                   { name: 'Updates', icon: <MessageSquare size={14} />, action: () => setView('newsfeed'), unread: updatesUnread },
                   { name: 'Confession', icon: <Sparkles size={14} />, action: () => setView('confession') },
-                  { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
                   { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
                 ].map(item => (
                   <button 
@@ -3631,6 +3733,352 @@ export default function App() {
     );
   };
 
+  // Utility feature render functions
+  const generateMockSchedules = (): Schedule[] => [
+    { id: 1, courseCode: 'CS101', courseName: 'Introduction to Programming', instructor: 'Dr. Maria Santos', day: 'Monday, Wednesday, Friday', time: '08:00 - 09:30 AM', location: 'ICT Building Room 101', campus: user?.campus || 'MSU Main' },
+    { id: 2, courseCode: 'CS202', courseName: 'Data Structures', instructor: 'Prof. John Reyes', day: 'Tuesday, Thursday', time: '10:00 - 11:30 AM', location: 'ICT Building Room 205', campus: user?.campus || 'MSU Main' },
+    { id: 3, courseCode: 'MATH101', courseName: 'Calculus I', instructor: 'Dr. Grace Fernandez', day: 'Monday, Wednesday, Friday', time: '01:00 - 02:30 PM', location: 'Science Building Room 301', campus: user?.campus || 'MSU Main' },
+    { id: 4, courseCode: 'ENG101', courseName: 'English Composition', instructor: 'Prof. Angela Cruz', day: 'Tuesday, Thursday', time: '02:00 - 03:30 PM', location: 'Arts Building Room 102', campus: user?.campus || 'MSU Main' },
+    { id: 5, courseCode: 'PHYS101', courseName: 'Physics I', instructor: 'Dr. Miguel Torres', day: 'Monday, Wednesday, Friday', time: '11:00 AM - 12:30 PM', location: 'Science Building Lab 101', campus: user?.campus || 'MSU Main' },
+  ];
+
+  const generateMockRooms = (): Room[] => [
+    { id: 1, building: 'ICT Building', number: '101', capacity: 45, type: 'Classroom', floor: 1, campus: user?.campus || 'MSU Main', available: true },
+    { id: 2, building: 'ICT Building', number: '205', capacity: 30, type: 'Computer Lab', floor: 2, campus: user?.campus || 'MSU Main', available: false },
+    { id: 3, building: 'Science Building', number: '301', capacity: 60, type: 'Lecture Hall', floor: 3, campus: user?.campus || 'MSU Main', available: true },
+    { id: 4, building: 'Arts Building', number: '102', capacity: 35, type: 'Classroom', floor: 1, campus: user?.campus || 'MSU Main', available: true },
+    { id: 5, building: 'Library', number: 'Study Room A', capacity: 10, type: 'Study Room', floor: 2, campus: user?.campus || 'MSU Main', available: true },
+    { id: 6, building: 'Student Center', number: 'Meeting Room 1', capacity: 20, type: 'Meeting Room', floor: 1, campus: user?.campus || 'MSU Main', available: false },
+  ];
+
+  const generateMockScholarships = (): Scholarship[] => [
+    { id: 1, name: 'Presidential Scholarship', description: 'Full tuition coverage for top performing students', amount: '₱150,000/semester', deadline: '2024-06-30', requirements: ['GPA 3.5+', 'Essay', 'Interview'], campus: user?.campus || 'MSU Main' },
+    { id: 2, name: 'Merit-Based Grant', description: 'Partial tuition support based on academic excellence', amount: '₱75,000/semester', deadline: '2024-07-15', requirements: ['GPA 3.0+', 'Application'], campus: user?.campus || 'MSU Main' },
+    { id: 3, name: 'Need-Based Scholarship', description: 'Financial aid for deserving students', amount: '₱50,000/semester', deadline: '2024-06-20', requirements: ['Income Documentation', 'Essay'], campus: user?.campus || 'MSU Main' },
+    { id: 4, name: 'Athlete Scholarship', description: 'Support for student athletes', amount: '₱100,000/semester', deadline: '2024-08-01', requirements: ['Sports Performance', 'Coaches Recommendation'], campus: user?.campus || 'MSU Main' },
+  ];
+
+  const generateMockInternships = (): Internship[] => [
+    { id: 1, company: 'TechCorp Philippines', position: 'Software Developer Intern', description: 'Work on web development projects using React and Node.js', postedBy: 'HR Department', campus: user?.campus || 'MSU Main', postedDate: '2024-01-15', deadline: '2024-02-28', type: 'Virtual' },
+    { id: 2, company: 'Digital Solutions Inc', position: 'Data Analyst Intern', description: 'Analyze business data and create reports', postedBy: 'HR Department', campus: user?.campus || 'MSU Main', postedDate: '2024-01-10', deadline: '2024-02-20', type: 'On-site' },
+    { id: 3, company: 'Marketing Pros Agency', position: 'Marketing Intern', description: 'Assist with social media campaigns and content creation', postedBy: 'HR Department', campus: user?.campus || 'MSU Main', postedDate: '2024-01-20', deadline: '2024-03-10', type: 'Hybrid' },
+    { id: 4, company: 'Consulting Group Asia', position: 'Business Consultant Intern', description: 'Support consultants in business analysis and strategy', postedBy: 'HR Department', campus: user?.campus || 'MSU Main', postedDate: '2024-01-18', deadline: '2024-03-05', type: 'On-site' },
+  ];
+
+  const generateMockBuildings = (): Building[] => [
+    { id: 'ict', name: 'ICT Building', x: 25, y: 30, description: 'Information and Communications Technology', type: 'Academic' },
+    { id: 'science', name: 'Science Building', x: 60, y: 40, description: 'Physics, Chemistry, Biology Labs', type: 'Academic' },
+    { id: 'arts', name: 'Arts Building', x: 40, y: 60, description: 'Languages, History, Philosophy', type: 'Academic' },
+    { id: 'library', name: 'Library', x: 50, y: 50, description: 'University Library - Central', type: 'Facility' },
+    { id: 'student', name: 'Student Center', x: 70, y: 30, description: 'Student Activities and Services', type: 'Facility' },
+    { id: 'gym', name: 'Sports Complex', x: 80, y: 70, description: 'Gymnasium and Athletic Facilities', type: 'Facility' },
+  ];
+
+  const generateMockLostItems = (): LostItem[] => [
+    { id: 1, user_id: 1, itemName: 'Black Wallet', description: 'Leather wallet with student ID', category: 'Accessories', location: 'Library Building', status: 'lost', postedDate: '2024-01-20', campus: user?.campus || 'MSU Main', contactName: 'John Doe', contactPhone: '09123456789' },
+    { id: 2, user_id: 2, itemName: 'Silver Watch', description: 'Seiko watch with metal band', category: 'Electronics', location: 'Student Center Cafe', status: 'found', postedDate: '2024-01-19', campus: user?.campus || 'MSU Main', contactName: 'Maria Santos', contactPhone: '09187654321' },
+    { id: 3, user_id: 3, itemName: 'AirPods Case', description: 'White AirPods case with charging cable', category: 'Electronics', location: 'ICT Building', status: 'lost', postedDate: '2024-01-21', campus: user?.campus || 'MSU Main', contactName: 'Alex Brown', contactPhone: '09111223344' },
+  ];
+
+  const generateMockEvents = (): CampusEvent[] => [
+    { id: 1, name: 'Welcome Week 2024', date: '2024-02-10', time: '10:00 AM', location: 'Student Plaza', description: 'Opening celebration for the semester with activities and performances', capacity: 500, attendees: 234, campus: user?.campus || 'MSU Main', rsvpUsers: [] },
+    { id: 2, name: 'Tech Summit 2024', date: '2024-02-15', time: '09:00 AM', location: 'ICT Building Auditorium', description: 'Latest trends in technology and innovation', capacity: 300, attendees: 156, campus: user?.campus || 'MSU Main', rsvpUsers: [] },
+    { id: 3, name: 'Sports Festival', date: '2024-02-20', time: '07:00 AM', location: 'Sports Complex', description: 'Inter-college sports competitions', capacity: 1000, attendees: 567, campus: user?.campus || 'MSU Main', rsvpUsers: [] },
+    { id: 4, name: 'Career Fair 2024', date: '2024-02-25', time: '09:00 AM', location: 'Main Gymnasium', description: 'Meet with companies and explore job opportunities', capacity: 400, attendees: 289, campus: user?.campus || 'MSU Main', rsvpUsers: [] },
+  ];
+
+  const renderSchedule = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Class Schedule</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="mb-6 flex gap-4 flex-col sm:flex-row">
+          <div className="flex-1">
+            <input type="text" placeholder="Search by course code or name..." value={scheduleFilter} onChange={(e) => setScheduleFilter(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+          </div>
+        </div>
+        <div className="grid gap-4">
+          {(schedules.length > 0 ? schedules : generateMockSchedules()).filter(s => s.courseName.toLowerCase().includes(scheduleFilter.toLowerCase()) || s.courseCode.toLowerCase().includes(scheduleFilter.toLowerCase())).map(schedule => (
+            <div key={schedule.id} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/8 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-mono text-amber-400">{schedule.courseCode}</span>
+                    <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-full">Course</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white">{schedule.courseName}</h3>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p><span className="text-gray-400">Instructor:</span> {schedule.instructor}</p>
+                <p><span className="text-gray-400">Schedule:</span> {schedule.day} @ {schedule.time}</p>
+                <p><span className="text-gray-400">Room:</span> {schedule.location}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderRoomFinder = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Room Finder</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Building</label>
+            <input type="text" placeholder="Search building..." value={roomFilter.building} onChange={(e) => setRoomFilter({...roomFilter, building: e.target.value})} className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Min. Capacity</label>
+            <input type="number" placeholder="0" value={roomFilter.capacity} onChange={(e) => setRoomFilter({...roomFilter, capacity: parseInt(e.target.value) || 0})} className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {(rooms.length > 0 ? rooms : generateMockRooms()).filter(r => (!roomFilter.building || r.building.toLowerCase().includes(roomFilter.building.toLowerCase())) && (roomFilter.capacity === 0 || r.capacity >= roomFilter.capacity)).map(room => (
+            <div key={room.id} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/8 transition-colors">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-white">{room.building} - {room.number}</h3>
+                  <p className="text-sm text-gray-400">{room.type}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${room.available ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>{room.available ? 'Available' : 'Occupied'}</span>
+              </div>
+              <div className="space-y-1 text-sm">
+                <p><span className="text-gray-400">Capacity:</span> {room.capacity} people</p>
+                <p><span className="text-gray-400">Floor:</span> {room.floor}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderScholarships = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Scholarship Board</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="mb-6">
+          <input type="text" placeholder="Search scholarships..." value={scholarshipFilter} onChange={(e) => setScholarshipFilter(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {(scholarships.length > 0 ? scholarships : generateMockScholarships()).filter(s => s.name.toLowerCase().includes(scholarshipFilter.toLowerCase()) || s.description.toLowerCase().includes(scholarshipFilter.toLowerCase())).map(scholarship => (
+            <div key={scholarship.id} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/8 transition-colors">
+              <h3 className="text-xl font-bold text-white mb-2">{scholarship.name}</h3>
+              <p className="text-gray-400 text-sm mb-4">{scholarship.description}</p>
+              <div className="space-y-3 text-sm">
+                <p><span className="text-amber-400 font-semibold">Amount:</span> {scholarship.amount}</p>
+                <p><span className="text-amber-400 font-semibold">Deadline:</span> {new Date(scholarship.deadline).toLocaleDateString()}</p>
+                <div>
+                  <p className="text-amber-400 font-semibold mb-2">Requirements:</p>
+                  <ul className="list-disc list-inside space-y-1 text-gray-400">
+                    {scholarship.requirements.map((req, i) => <li key={i}>{req}</li>)}
+                  </ul>
+                </div>
+              </div>
+              <button className="mt-4 w-full px-4 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-colors">Apply Now</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderInternships = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Internship Board</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="mb-6">
+          <input type="text" placeholder="Search internships..." value={internshipFilter} onChange={(e) => setInternshipFilter(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+        </div>
+        <div className="grid gap-6">
+          {(internships.length > 0 ? internships : generateMockInternships()).filter(i => i.company.toLowerCase().includes(internshipFilter.toLowerCase()) || i.position.toLowerCase().includes(internshipFilter.toLowerCase())).map(internship => (
+            <div key={internship.id} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/8 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white">{internship.position}</h3>
+                  <p className="text-amber-400 font-semibold">{internship.company}</p>
+                </div>
+                <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full">{internship.type}</span>
+              </div>
+              <p className="text-gray-400 text-sm mb-4">{internship.description}</p>
+              <div className="space-y-2 text-sm text-gray-400 mb-4">
+                <p><span className="text-gray-300">Posted:</span> {new Date(internship.postedDate).toLocaleDateString()}</p>
+                {internship.deadline && <p><span className="text-gray-300">Deadline:</span> {new Date(internship.deadline).toLocaleDateString()}</p>}
+              </div>
+              <button className="w-full px-4 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-colors">Apply Now</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCampusMap = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Campus Map</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="md:col-span-2">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-6 relative" style={{ aspectRatio: '4/3' }}>
+              <svg viewBox="0 0 500 400" className="w-full h-full">
+                <defs>
+                  <linearGradient id="mapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#1a1a1a" />
+                    <stop offset="100%" stopColor="#0a0502" />
+                  </linearGradient>
+                </defs>
+                <rect width="500" height="400" fill="url(#mapGrad)" />
+                <line x1="50" y1="0" x2="50" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="100" y1="0" x2="100" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="150" y1="0" x2="150" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="200" y1="0" x2="200" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="250" y1="0" x2="250" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="300" y1="0" x2="300" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="350" y1="0" x2="350" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="400" y1="0" x2="400" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="450" y1="0" x2="450" y2="400" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="50" x2="500" y2="50" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="100" x2="500" y2="100" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="150" x2="500" y2="150" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="200" x2="500" y2="200" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="250" x2="500" y2="250" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="300" x2="500" y2="300" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                <line x1="0" y1="350" x2="500" y2="350" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
+                {(campusBuildings.length > 0 ? campusBuildings : generateMockBuildings()).map((building) => {
+                  const x = (building.x / 100) * 500;
+                  const y = (building.y / 100) * 400;
+                  return (
+                    <g key={building.id}>
+                      <rect x={x - 30} y={y - 20} width="60" height="40" fill="#b99740" opacity="0.8" rx="4" />
+                      <text x={x} y={y + 5} textAnchor="middle" fill="#000" fontSize="10" fontWeight="bold">{building.name.split(' ')[0]}</text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white mb-4">Locations</h3>
+            <div className="space-y-3">
+              {(campusBuildings.length > 0 ? campusBuildings : generateMockBuildings()).map((building) => (
+                <div key={building.id} className="bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/8 transition-colors cursor-pointer">
+                  <h4 className="font-bold text-white text-sm">{building.name}</h4>
+                  <p className="text-xs text-gray-400 mt-1">{building.description}</p>
+                  <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded inline-block mt-2">{building.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderLostAndFound = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Lost & Found</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="mb-8 bg-white/5 border border-white/10 rounded-xl p-6">
+          <h3 className="text-lg font-bold text-white mb-4">Post a Lost or Found Item</h3>
+          <div className="grid gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input type="text" placeholder="Item name" value={newLostItem.itemName || ''} onChange={(e) => setNewLostItem({...newLostItem, itemName: e.target.value})} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+              <select value={newLostItem.status || 'lost'} onChange={(e) => setNewLostItem({...newLostItem, status: e.target.value as 'lost' | 'found'})} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-amber-500"><option value="lost">Lost Item</option><option value="found">Found Item</option></select>
+            </div>
+            <input type="text" placeholder="Description" value={newLostItem.description || ''} onChange={(e) => setNewLostItem({...newLostItem, description: e.target.value})} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input type="text" placeholder="Category (e.g., Electronics, Accessories)" value={newLostItem.category || ''} onChange={(e) => setNewLostItem({...newLostItem, category: e.target.value})} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+              <input type="text" placeholder="Location" value={newLostItem.location || ''} onChange={(e) => setNewLostItem({...newLostItem, location: e.target.value})} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+            </div>
+            <button className="px-6 py-2 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-colors w-full">Post Item</button>
+          </div>
+        </div>
+        <div className="mb-6 flex gap-2 flex-wrap">
+          <button onClick={() => setLostItemFilter({...lostItemFilter, status: 'lost'})} className={`px-4 py-2 rounded-lg transition-colors ${lostItemFilter.status === 'lost' ? 'bg-amber-500 text-black' : 'bg-white/5 text-gray-200 hover:bg-white/10'}`}>Lost Items</button>
+          <button onClick={() => setLostItemFilter({...lostItemFilter, status: 'found'})} className={`px-4 py-2 rounded-lg transition-colors ${lostItemFilter.status === 'found' ? 'bg-amber-500 text-black' : 'bg-white/5 text-gray-200 hover:bg-white/10'}`}>Found Items</button>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {(lostItems.length > 0 ? lostItems : generateMockLostItems()).filter(item => item.status === lostItemFilter.status).map(item => (
+            <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/8 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-white">{item.itemName}</h3>
+                  <span className={`text-xs px-3 py-1 rounded-full mt-2 inline-block ${item.status === 'lost' ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}`}>{item.status === 'lost' ? 'Lost' : 'Found'}</span>
+                </div>
+              </div>
+              <p className="text-gray-400 text-sm mb-4">{item.description}</p>
+              <div className="space-y-2 text-sm text-gray-400">
+                <p><span className="text-gray-300">Category:</span> {item.category}</p>
+                <p><span className="text-gray-300">Location:</span> {item.location}</p>
+                <p><span className="text-gray-300">Posted:</span> {new Date(item.postedDate).toLocaleDateString()}</p>
+                {item.contactName && <p><span className="text-gray-300">Contact:</span> {item.contactName} ({item.contactPhone})</p>}
+              </div>
+              <button className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors w-full">Contact Owner</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderEvents = () => (
+    <div className="min-h-screen bg-[#0a0502] text-gray-200 p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text">Campus Events & RSVP</h1>
+          <button onClick={() => setView('dashboard')} className="p-2 rounded-lg hover:bg-white/10 transition-colors"><X size={24} /></button>
+        </div>
+        <div className="mb-6">
+          <input type="text" placeholder="Search events..." value={eventFilter} onChange={(e) => setEventFilter(e.target.value)} className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {(campusEvents.length > 0 ? campusEvents : generateMockEvents()).filter(event => event.name.toLowerCase().includes(eventFilter.toLowerCase()) || event.description.toLowerCase().includes(eventFilter.toLowerCase())).map(event => (
+            <div key={event.id} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:bg-white/8 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-white">{event.name}</h3>
+                  <p className="text-gray-400 text-sm mt-1">{event.description}</p>
+                </div>
+              </div>
+              <div className="space-y-3 text-sm mt-4">
+                <p className="flex items-center gap-2"><Clock size={16} className="text-amber-400" /><span className="text-gray-400">{event.date} @ {event.time}</span></p>
+                <p className="flex items-center gap-2"><MapPin size={16} className="text-amber-400" /><span className="text-gray-400">{event.location}</span></p>
+                <p className="text-gray-400"><span className="text-amber-400 font-semibold">Attendees:</span> {event.attendees}/{event.capacity}</p>
+              </div>
+              <button onClick={() => {
+                if (user && userRsvps.includes(event.id)) {
+                  setUserRsvps(userRsvps.filter(id => id !== event.id));
+                } else if (user) {
+                  setUserRsvps([...userRsvps, event.id]);
+                }
+              }} className={`mt-4 w-full px-4 py-2 font-bold rounded-lg transition-colors ${user && userRsvps.includes(event.id) ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-amber-500 text-black hover:bg-amber-400'}`}>{user && userRsvps.includes(event.id) ? '✓ Attending' : 'RSVP Now'}</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-[100dvh] w-full selection:bg-amber-500/30 selection:text-amber-200 overflow-auto scrollbar-hide fixed inset-0">
       <AnimatePresence mode="wait">
@@ -3731,6 +4179,83 @@ export default function App() {
             transition={{ duration: 0.4 }}
           >
             {renderMessenger()}
+          </motion.div>
+        )}
+        {view === 'schedule' && (
+          <motion.div
+            key="schedule"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderSchedule()}
+          </motion.div>
+        )}
+        {view === 'roomfinder' && (
+          <motion.div
+            key="roomfinder"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderRoomFinder()}
+          </motion.div>
+        )}
+        {view === 'scholarships' && (
+          <motion.div
+            key="scholarships"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderScholarships()}
+          </motion.div>
+        )}
+        {view === 'internships' && (
+          <motion.div
+            key="internships"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderInternships()}
+          </motion.div>
+        )}
+        {view === 'campusmap' && (
+          <motion.div
+            key="campusmap"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderCampusMap()}
+          </motion.div>
+        )}
+        {view === 'lostandfound' && (
+          <motion.div
+            key="lostandfound"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderLostAndFound()}
+          </motion.div>
+        )}
+        {view === 'events' && (
+          <motion.div
+            key="events"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {renderEvents()}
           </motion.div>
         )}
       </AnimatePresence>
