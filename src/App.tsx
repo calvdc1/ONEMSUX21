@@ -495,6 +495,11 @@ const isVerified = (email?: string, u?: User | null) => {
     }
   };
 
+  const responseMessage = (payload: any, fallback: string) => {
+    const message = payload?.message;
+    return typeof message === 'string' && message.trim() ? message : fallback;
+  };
+
   const virtuosoRef = useRef<any>(null);
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({}); // roomId -> names[]
@@ -504,20 +509,24 @@ const isVerified = (email?: string, u?: User | null) => {
 
   // Effect to populate DM list from local storage or API
   useEffect(() => {
-    if (user) {
-      // Load saved DM list
-      const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
-      if (savedDMs) {
-        setDirectMessageList(JSON.parse(savedDMs));
-      }
+    if (!user) {
+      setDirectMessageList([]);
+      return;
     }
+
+    const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
+    if (savedDMs) {
+      setDirectMessageList(JSON.parse(savedDMs));
+      return;
+    }
+
+    setDirectMessageList([]);
   }, [user]);
 
   // Save DM list when it changes
   useEffect(() => {
-    if (user && directMessageList.length > 0) {
-      localStorage.setItem(`onemsu_dms_${user.id}`, JSON.stringify(directMessageList));
-    }
+    if (!user) return;
+    localStorage.setItem(`onemsu_dms_${user.id}`, JSON.stringify(directMessageList));
   }, [directMessageList, user]);
 
   const addToDMList = (otherUser: { id: number; name: string; avatar?: string; campus?: string }) => {
@@ -1228,7 +1237,7 @@ const isVerified = (email?: string, u?: User | null) => {
         setIsLoginOpen(false);
         setIsAuthLoading(false);
       } else {
-        alert(data.message || 'Login failed. Please check your credentials and try again.');
+        alert(responseMessage(data, 'Login failed. Please check your credentials and try again.'));
         setIsAuthLoading(false);
       }
     } catch {
@@ -1267,12 +1276,13 @@ const isVerified = (email?: string, u?: User | null) => {
           setIsLoginOpen(true);
           setTimeout(() => alert('Email already exists. Please log in or reset your password.'), 10);
         } else {
-          alert(data.message);
+          alert(responseMessage(data, 'Signup failed. Please review your details and try again.'));
         }
         setIsAuthLoading(false);
       }
     } catch {
       setIsAuthLoading(false);
+      alert('Signup failed. Please try again.');
     }
   };
 
@@ -1303,19 +1313,20 @@ const isVerified = (email?: string, u?: User | null) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
-      }).then(r => r.json());
+      });
+      const data = await safeJson(res);
 
       setIsAuthLoading(false);
-      if (res.success) {
-        alert(res.message);
+      if (res.ok && data.success) {
+        alert(responseMessage(data, 'Reset instructions sent to your email.'));
         setIsForgotOpen(false);
         setIsLoginOpen(true);
       } else {
-        alert(res.message);
+        alert(responseMessage(data, 'Failed to send reset link. Please try again later.'));
       }
     } catch {
       setIsAuthLoading(false);
-      alert("Failed to send reset link. Please try again later.");
+      alert('Failed to send reset link. Please try again later.');
     }
   };
 
