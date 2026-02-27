@@ -47,7 +47,10 @@ import {
   Radio,
   Clapperboard,
   Music2,
-  Play
+  Play,
+  KeyRound,
+  Copy,
+  Upload
 } from 'lucide-react';
 
 // --- Types ---
@@ -427,6 +430,9 @@ export default function App() {
   });
   const [gradeDraft, setGradeDraft] = useState({ subject: '', score: '', total: '', units: '3' });
   const [liveUrl, setLiveUrl] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('onemsu_live_url') || '' : ''));
+  const [streamTitle, setStreamTitle] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('onemsu_stream_title') || 'ONEMSU Live' : 'ONEMSU Live'));
+  const [streamKey, setStreamKey] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('onemsu_stream_key') || Math.random().toString(36).slice(2, 14) : ''));
+  const [streamServer, setStreamServer] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('onemsu_stream_server') || 'rtmp://live.onemsu.app/live' : 'rtmp://live.onemsu.app/live'));
   const [reels, setReels] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('onemsu_reels');
@@ -443,6 +449,15 @@ export default function App() {
     return [];
   });
   const [trackDraft, setTrackDraft] = useState({ title: '', artist: '', src: '' });
+  const [albums, setAlbums] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onemsu_music_albums');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [albumDraft, setAlbumDraft] = useState('My Playlist');
+  const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
   useEffect(() => {
     playSound('splash');
     const timer = window.setTimeout(() => setShowOpeningSplash(false), 10000);
@@ -541,8 +556,12 @@ export default function App() {
   useEffect(() => { localStorage.setItem('onemsu_calendar', JSON.stringify(calendarItems)); }, [calendarItems]);
   useEffect(() => { localStorage.setItem('onemsu_grades', JSON.stringify(gradeItems)); }, [gradeItems]);
   useEffect(() => { localStorage.setItem('onemsu_live_url', liveUrl); }, [liveUrl]);
+  useEffect(() => { localStorage.setItem('onemsu_stream_title', streamTitle); }, [streamTitle]);
+  useEffect(() => { localStorage.setItem('onemsu_stream_key', streamKey); }, [streamKey]);
+  useEffect(() => { localStorage.setItem('onemsu_stream_server', streamServer); }, [streamServer]);
   useEffect(() => { localStorage.setItem('onemsu_reels', JSON.stringify(reels)); }, [reels]);
   useEffect(() => { localStorage.setItem('onemsu_music_tracks', JSON.stringify(musicTracks)); }, [musicTracks]);
+  useEffect(() => { localStorage.setItem('onemsu_music_albums', JSON.stringify(albums)); }, [albums]);
 
   useEffect(() => {
     if (view === 'dashboard' || view === 'explorer') {
@@ -2547,29 +2566,51 @@ export default function App() {
 
   const renderStream = () => (
     <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
-      <h2 className="text-2xl font-bold flex items-center gap-2"><Radio size={22}/> Live Streaming Studio</h2>
-      <p className="text-sm text-gray-400">Paste your OBS output URL (HLS/MP4/WebM) to preview a live stream page for viewers.</p>
-      <div className="flex gap-2"><input className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2" value={liveUrl} onChange={(e)=>setLiveUrl(e.target.value)} placeholder="https://...m3u8 or video url"/><button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>setLiveUrl(liveUrl.trim())}>Save Stream URL</button></div>
-      <div className="rounded-2xl border border-white/10 overflow-hidden bg-black">{liveUrl ? <video src={liveUrl} controls autoPlay className="w-full max-h-[65vh] bg-black"/> : <div className="p-10 text-center text-gray-400">No stream configured yet.</div>}</div>
+      <h2 className="text-2xl font-bold flex items-center gap-2"><Radio size={22}/> Live Studio (Facebook-style setup)</h2>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-white/10 p-4 bg-white/5 space-y-3">
+          <label className="text-xs text-gray-400">Stream Title</label>
+          <input className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2" value={streamTitle} onChange={(e)=>setStreamTitle(e.target.value)} />
+          <label className="text-xs text-gray-400">OBS Server URL</label>
+          <div className="flex gap-2"><input className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2" value={streamServer} onChange={(e)=>setStreamServer(e.target.value)} /><button className="px-3 rounded bg-white/10 cursor-pointer" onClick={()=>navigator.clipboard?.writeText(streamServer)}><Copy size={14}/></button></div>
+          <label className="text-xs text-gray-400">Stream Key</label>
+          <div className="flex gap-2"><input className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2" value={streamKey} onChange={(e)=>setStreamKey(e.target.value)} /><button className="px-3 rounded bg-white/10 cursor-pointer" onClick={()=>navigator.clipboard?.writeText(streamKey)}><KeyRound size={14}/></button></div>
+          <p className="text-xs text-gray-400">In OBS: Settings → Stream → Service: Custom, then paste server URL and stream key.</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 p-4 bg-white/5">
+          <label className="text-xs text-gray-400">Viewer Playback URL (HLS/MP4/WebM)</label>
+          <div className="flex gap-2 mt-2"><input className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2" value={liveUrl} onChange={(e)=>setLiveUrl(e.target.value)} placeholder="https://...m3u8"/><button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer">Save</button></div>
+          <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black">{liveUrl ? <video src={liveUrl} controls autoPlay className="w-full max-h-[45vh]"/> : <div className="p-10 text-center text-gray-400">No live playback URL yet.</div>}</div>
+        </div>
+      </div>
     </div></div>
   );
 
   const renderReels = () => (
-    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
-      <h2 className="text-2xl font-bold flex items-center gap-2"><Clapperboard size={22}/> Video Reels</h2>
-      <div className="grid md:grid-cols-[1fr_2fr] gap-3"><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Reel title" value={reelDraft.title} onChange={(e)=>setReelDraft({...reelDraft,title:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Video URL" value={reelDraft.videoUrl} onChange={(e)=>setReelDraft({...reelDraft,videoUrl:e.target.value})}/></div>
-      <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!reelDraft.title||!reelDraft.videoUrl) return; setReels([{id:Date.now(),...reelDraft},...reels]); setReelDraft({title:'',videoUrl:''}); }}>Post Reel</button>
-      <div className="grid md:grid-cols-2 gap-4">{reels.length===0 ? <p className="text-gray-400">No reels yet.</p> : reels.map((r:any)=><div key={r.id} className="rounded-2xl border border-white/10 p-3 bg-white/5"><p className="text-sm mb-2">{r.title}</p><video src={r.videoUrl} controls className="w-full rounded-lg bg-black"/></div>)}</div>
+    <div className="min-h-screen bg-black text-white p-0"><div className="max-w-md mx-auto min-h-screen border-x border-white/10">
+      <div className="sticky top-0 bg-black/80 backdrop-blur px-4 py-3 border-b border-white/10 z-10"><h2 className="font-bold text-lg">Reels • TikTok style</h2></div>
+      <div className="p-3 space-y-3">
+        <input className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Reel title" value={reelDraft.title} onChange={(e)=>setReelDraft({...reelDraft,title:e.target.value})}/>
+        <input className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Video URL" value={reelDraft.videoUrl} onChange={(e)=>setReelDraft({...reelDraft,videoUrl:e.target.value})}/>
+        <button className="w-full bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!reelDraft.title||!reelDraft.videoUrl) return; setReels([{id:Date.now(),...reelDraft},...reels]); setReelDraft({title:'',videoUrl:''}); }}>Post Reel</button>
+      </div>
+      <div className="space-y-6 pb-20">{reels.length===0 ? <p className="text-gray-400 p-4">No reels yet.</p> : reels.map((r:any)=><div key={r.id} className="relative h-[75vh] bg-black border-y border-white/10"><video src={r.videoUrl} controls className="w-full h-full object-cover"/><div className="absolute bottom-4 left-3 right-3"><p className="font-semibold">{r.title}</p><p className="text-xs text-gray-300">@onemsu_user</p></div></div>)}</div>
     </div></div>
   );
 
   const renderMusic = () => (
-    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
-      <h2 className="text-2xl font-bold flex items-center gap-2"><Music2 size={22}/> Music Player</h2>
-      <p className="text-sm text-gray-400">Ad-free playback for your own uploaded/public-licensed tracks. (No Spotify bypassing.)</p>
-      <div className="grid md:grid-cols-3 gap-3"><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Title" value={trackDraft.title} onChange={(e)=>setTrackDraft({...trackDraft,title:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Artist" value={trackDraft.artist} onChange={(e)=>setTrackDraft({...trackDraft,artist:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Audio URL" value={trackDraft.src} onChange={(e)=>setTrackDraft({...trackDraft,src:e.target.value})}/></div>
-      <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!trackDraft.title||!trackDraft.src) return; setMusicTracks([{id:Date.now(),...trackDraft},...musicTracks]); setTrackDraft({title:'',artist:'',src:''}); }}>Add Track</button>
-      <div className="space-y-2">{musicTracks.length===0 ? <p className="text-gray-400">No tracks yet.</p> : musicTracks.map((t:any)=><div key={t.id} className="p-3 rounded-xl border border-white/10 bg-white/5"><p className="font-semibold">{t.title} <span className="text-xs text-gray-400">{t.artist}</span></p><audio src={t.src} controls className="w-full mt-2"/></div>)}</div>
+    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-6xl mx-auto space-y-4">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><Music2 size={22}/> MP3 Library (drag & drop + albums)</h2>
+      <div className="grid md:grid-cols-3 gap-3">
+        <input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="New album name" value={albumDraft} onChange={(e)=>setAlbumDraft(e.target.value)} />
+        <button className="bg-white/10 rounded-lg px-3 py-2 cursor-pointer" onClick={()=>{ if(!albumDraft.trim()) return; const id=Date.now(); setAlbums([{id,name:albumDraft.trim(),trackIds:[]},...albums]); setSelectedAlbumId(id); setAlbumDraft(''); }}>Create Album</button>
+        <select className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" value={selectedAlbumId ?? ''} onChange={(e)=>setSelectedAlbumId(e.target.value?Number(e.target.value):null)}><option value="">No album selected</option>{albums.map((a:any)=><option key={a.id} value={a.id}>{a.name}</option>)}</select>
+      </div>
+      <div onDragOver={(e)=>e.preventDefault()} onDrop={(e)=>{e.preventDefault(); const f=e.dataTransfer.files?.[0]; if(!f) return; const url=URL.createObjectURL(f); setTrackDraft({...trackDraft, title: f.name.replace(/\.[^.]+$/,''), src:url}); }} className="rounded-2xl border-2 border-dashed border-white/20 p-8 text-center bg-white/5"><Upload className="mx-auto mb-2"/>Drag & drop MP3 here</div>
+      <div className="grid md:grid-cols-3 gap-3"><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Song title" value={trackDraft.title} onChange={(e)=>setTrackDraft({...trackDraft,title:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Artist" value={trackDraft.artist} onChange={(e)=>setTrackDraft({...trackDraft,artist:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Audio URL (optional)" value={trackDraft.src} onChange={(e)=>setTrackDraft({...trackDraft,src:e.target.value})}/></div>
+      <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!trackDraft.title||!trackDraft.src) return; const id=Date.now(); setMusicTracks([{id,...trackDraft},...musicTracks]); if(selectedAlbumId){ setAlbums(albums.map((a:any)=>a.id===selectedAlbumId?{...a,trackIds:[id,...(a.trackIds||[])]}:a)); } setTrackDraft({title:'',artist:'',src:''}); }}>Add Track</button>
+      <div className="grid md:grid-cols-2 gap-4">{musicTracks.length===0 ? <p className="text-gray-400">No tracks yet.</p> : musicTracks.map((t:any)=><div key={t.id} className="p-3 rounded-xl border border-white/10 bg-white/5"><p className="font-semibold">{t.title} <span className="text-xs text-gray-400">{t.artist}</span></p><audio src={t.src} controls className="w-full mt-2"/></div>)}</div>
+      <div className="rounded-2xl border border-white/10 p-4 bg-white/5"><h3 className="font-semibold mb-2">Albums</h3>{albums.length===0?<p className="text-gray-400 text-sm">No albums yet.</p>:albums.map((a:any)=><div key={a.id} className="text-sm py-1">{a.name} • {(a.trackIds||[]).length} track(s)</div>)}</div>
     </div></div>
   );
 
