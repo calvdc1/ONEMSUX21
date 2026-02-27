@@ -41,7 +41,13 @@ import {
   Pencil,
   Trash2,
   Paperclip,
-  Mic2
+  Mic2,
+  CalendarDays,
+  GraduationCap,
+  Radio,
+  Clapperboard,
+  Music2,
+  Play
 } from 'lucide-react';
 
 // --- Types ---
@@ -227,7 +233,7 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 };
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'freedomwall' | 'feedbacks' | 'assistant' | 'settings' | 'library' | 'lostfound' | 'groups' | 'confession'>('home');
+  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'freedomwall' | 'feedbacks' | 'assistant' | 'settings' | 'library' | 'lostfound' | 'groups' | 'confession' | 'calendar' | 'grades' | 'stream' | 'reels' | 'music'>('home');
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -403,6 +409,40 @@ export default function App() {
     return [];
   });
 
+
+  const [calendarItems, setCalendarItems] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onemsu_calendar');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [scheduleDraft, setScheduleDraft] = useState({ title: '', date: '', time: '', note: '' });
+  const [gradeItems, setGradeItems] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onemsu_grades');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [gradeDraft, setGradeDraft] = useState({ subject: '', score: '', total: '', units: '3' });
+  const [liveUrl, setLiveUrl] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('onemsu_live_url') || '' : ''));
+  const [reels, setReels] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onemsu_reels');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [reelDraft, setReelDraft] = useState({ title: '', videoUrl: '' });
+  const [musicTracks, setMusicTracks] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('onemsu_music_tracks');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [trackDraft, setTrackDraft] = useState({ title: '', artist: '', src: '' });
   useEffect(() => {
     playSound('splash');
     const timer = window.setTimeout(() => setShowOpeningSplash(false), 10000);
@@ -421,6 +461,11 @@ export default function App() {
       '/dashboard': 'dashboard',
       '/assistant': 'assistant',
       '/feedback': 'feedbacks',
+      '/calendar': 'calendar',
+      '/grades': 'grades',
+      '/stream': 'stream',
+      '/reels': 'reels',
+      '/music': 'music',
     };
     return map[route] || 'home';
   };
@@ -438,6 +483,11 @@ export default function App() {
       dashboard: '/dashboard',
       assistant: '/assistant',
       feedbacks: '/feedback',
+      calendar: '/calendar',
+      grades: '/grades',
+      stream: '/stream',
+      reels: '/reels',
+      music: '/music',
     };
     return map[v] || '/home';
   };
@@ -487,6 +537,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('onemsu_courses', JSON.stringify(enrolledCourses));
   }, [enrolledCourses]);
+
+  useEffect(() => { localStorage.setItem('onemsu_calendar', JSON.stringify(calendarItems)); }, [calendarItems]);
+  useEffect(() => { localStorage.setItem('onemsu_grades', JSON.stringify(gradeItems)); }, [gradeItems]);
+  useEffect(() => { localStorage.setItem('onemsu_live_url', liveUrl); }, [liveUrl]);
+  useEffect(() => { localStorage.setItem('onemsu_reels', JSON.stringify(reels)); }, [reels]);
+  useEffect(() => { localStorage.setItem('onemsu_music_tracks', JSON.stringify(musicTracks)); }, [musicTracks]);
 
   useEffect(() => {
     if (view === 'dashboard' || view === 'explorer') {
@@ -1331,7 +1387,12 @@ export default function App() {
                   { name: 'Threads', icon: <MessageSquare size={14} />, action: () => setView('newsfeed') },
                   { name: 'Freedom Wall', icon: <Sparkles size={14} />, action: () => navigateTo('confession') },
                   { name: 'Explorer', icon: <Globe size={14} />, action: () => navigateTo('groups') },
-                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => navigateTo('feedbacks') }
+                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => navigateTo('feedbacks') },
+                  { name: 'Calendar', icon: <CalendarDays size={14} />, action: () => navigateTo('calendar') },
+                  { name: 'Grades', icon: <GraduationCap size={14} />, action: () => navigateTo('grades') },
+                  { name: 'Live', icon: <Radio size={14} />, action: () => navigateTo('stream') },
+                  { name: 'Reels', icon: <Clapperboard size={14} />, action: () => navigateTo('reels') },
+                  { name: 'Music', icon: <Music2 size={14} />, action: () => navigateTo('music') }
                 ].map(item => (
                   <button 
                     key={item.name} 
@@ -2431,6 +2492,87 @@ export default function App() {
       </div>
     </div>
   );
+
+  const gradeAverage = useMemo(() => {
+    if (!gradeItems.length) return null;
+    const totals = gradeItems.reduce((acc: any, g: any) => {
+      const pct = (Number(g.score) / Math.max(1, Number(g.total))) * 100;
+      const units = Math.max(1, Number(g.units || 1));
+      acc.weight += units;
+      acc.value += pct * units;
+      return acc;
+    }, { value: 0, weight: 0 });
+    return totals.weight ? totals.value / totals.weight : null;
+  }, [gradeItems]);
+
+  const gradeInsight = useMemo(() => {
+    if (gradeAverage == null) return 'Add subjects to get your academic insights.';
+    if (gradeAverage >= 90) return 'Excellent standing. Keep active recall and spaced repetition to sustain performance.';
+    if (gradeAverage >= 85) return 'Strong progress. Focus on weak topics weekly and use practice exams.';
+    if (gradeAverage >= 75) return 'Passing but at risk. Build a fixed study calendar and seek peer tutoring.';
+    return 'Critical risk zone. Meet your adviser and make a recovery plan per subject this week.';
+  }, [gradeAverage]);
+
+  const renderCalendar = () => (
+    <div className="min-h-screen bg-black text-white p-6 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-4">
+        <h2 className="text-2xl font-bold flex items-center gap-2"><CalendarDays size={22}/> Calendar Scheduler</h2>
+        <div className="grid md:grid-cols-4 gap-3">
+          <input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Title" value={scheduleDraft.title} onChange={(e)=>setScheduleDraft({...scheduleDraft,title:e.target.value})}/>
+          <input type="date" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" value={scheduleDraft.date} onChange={(e)=>setScheduleDraft({...scheduleDraft,date:e.target.value})}/>
+          <input type="time" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" value={scheduleDraft.time} onChange={(e)=>setScheduleDraft({...scheduleDraft,time:e.target.value})}/>
+          <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!scheduleDraft.title||!scheduleDraft.date||!scheduleDraft.time) return; setCalendarItems([{id:Date.now(),...scheduleDraft},...calendarItems]); setScheduleDraft({title:'',date:'',time:'',note:''}); }}>Add Schedule</button>
+        </div>
+        <textarea className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Notes" value={scheduleDraft.note} onChange={(e)=>setScheduleDraft({...scheduleDraft,note:e.target.value})}/>
+        <div className="space-y-2">{calendarItems.length===0 ? <p className="text-gray-400">No schedules yet.</p> : calendarItems.map((i:any)=><div key={i.id} className="p-3 rounded-xl border border-white/10 bg-white/5 flex justify-between gap-2"><div><p className="font-semibold">{i.title}</p><p className="text-xs text-gray-400">{i.date} • {i.time}</p><p className="text-sm text-gray-300">{i.note}</p></div><button className="text-rose-300 text-xs cursor-pointer" onClick={()=>setCalendarItems(calendarItems.filter((x:any)=>x.id!==i.id))}>Remove</button></div>)}</div>
+      </div>
+    </div>
+  );
+
+  const renderGrades = () => (
+    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><GraduationCap size={22}/> Academic Insights</h2>
+      <p className="text-sm text-gray-400">Analysis uses weighted percentage average and evidence-based study planning patterns (spaced repetition, practice testing, interleaving).</p>
+      <div className="grid md:grid-cols-5 gap-3">
+        <input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Subject" value={gradeDraft.subject} onChange={(e)=>setGradeDraft({...gradeDraft,subject:e.target.value})}/>
+        <input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Score" type="number" value={gradeDraft.score} onChange={(e)=>setGradeDraft({...gradeDraft,score:e.target.value})}/>
+        <input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Total" type="number" value={gradeDraft.total} onChange={(e)=>setGradeDraft({...gradeDraft,total:e.target.value})}/>
+        <input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Units" type="number" value={gradeDraft.units} onChange={(e)=>setGradeDraft({...gradeDraft,units:e.target.value})}/>
+        <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!gradeDraft.subject||!gradeDraft.score||!gradeDraft.total) return; setGradeItems([{id:Date.now(),...gradeDraft},...gradeItems]); setGradeDraft({subject:'',score:'',total:'',units:'3'}); }}>Add</button>
+      </div>
+      <div className="p-4 rounded-xl border border-white/10 bg-white/5"><p className="text-sm text-gray-300">Current weighted average: <span className="text-amber-300 font-semibold">{gradeAverage == null ? 'N/A' : `${gradeAverage.toFixed(2)}%`}</span></p><p className="mt-2 text-sm">{gradeInsight}</p></div>
+      <div className="space-y-2">{gradeItems.map((g:any)=><div key={g.id} className="p-3 rounded-xl border border-white/10 bg-white/5 text-sm flex justify-between"><span>{g.subject}: {g.score}/{g.total} ({g.units}u)</span><button className="text-rose-300 cursor-pointer" onClick={()=>setGradeItems(gradeItems.filter((x:any)=>x.id!==g.id))}>Remove</button></div>)}</div>
+    </div></div>
+  );
+
+  const renderStream = () => (
+    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><Radio size={22}/> Live Streaming Studio</h2>
+      <p className="text-sm text-gray-400">Paste your OBS output URL (HLS/MP4/WebM) to preview a live stream page for viewers.</p>
+      <div className="flex gap-2"><input className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2" value={liveUrl} onChange={(e)=>setLiveUrl(e.target.value)} placeholder="https://...m3u8 or video url"/><button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>setLiveUrl(liveUrl.trim())}>Save Stream URL</button></div>
+      <div className="rounded-2xl border border-white/10 overflow-hidden bg-black">{liveUrl ? <video src={liveUrl} controls autoPlay className="w-full max-h-[65vh] bg-black"/> : <div className="p-10 text-center text-gray-400">No stream configured yet.</div>}</div>
+    </div></div>
+  );
+
+  const renderReels = () => (
+    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><Clapperboard size={22}/> Video Reels</h2>
+      <div className="grid md:grid-cols-[1fr_2fr] gap-3"><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Reel title" value={reelDraft.title} onChange={(e)=>setReelDraft({...reelDraft,title:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Video URL" value={reelDraft.videoUrl} onChange={(e)=>setReelDraft({...reelDraft,videoUrl:e.target.value})}/></div>
+      <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!reelDraft.title||!reelDraft.videoUrl) return; setReels([{id:Date.now(),...reelDraft},...reels]); setReelDraft({title:'',videoUrl:''}); }}>Post Reel</button>
+      <div className="grid md:grid-cols-2 gap-4">{reels.length===0 ? <p className="text-gray-400">No reels yet.</p> : reels.map((r:any)=><div key={r.id} className="rounded-2xl border border-white/10 p-3 bg-white/5"><p className="text-sm mb-2">{r.title}</p><video src={r.videoUrl} controls className="w-full rounded-lg bg-black"/></div>)}</div>
+    </div></div>
+  );
+
+  const renderMusic = () => (
+    <div className="min-h-screen bg-black text-white p-6 md:p-8"><div className="max-w-5xl mx-auto space-y-4">
+      <h2 className="text-2xl font-bold flex items-center gap-2"><Music2 size={22}/> Music Player</h2>
+      <p className="text-sm text-gray-400">Ad-free playback for your own uploaded/public-licensed tracks. (No Spotify bypassing.)</p>
+      <div className="grid md:grid-cols-3 gap-3"><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Title" value={trackDraft.title} onChange={(e)=>setTrackDraft({...trackDraft,title:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Artist" value={trackDraft.artist} onChange={(e)=>setTrackDraft({...trackDraft,artist:e.target.value})}/><input className="bg-white/5 border border-white/10 rounded-lg px-3 py-2" placeholder="Audio URL" value={trackDraft.src} onChange={(e)=>setTrackDraft({...trackDraft,src:e.target.value})}/></div>
+      <button className="bg-amber-500 text-black rounded-lg px-3 py-2 font-semibold cursor-pointer" onClick={()=>{ if(!trackDraft.title||!trackDraft.src) return; setMusicTracks([{id:Date.now(),...trackDraft},...musicTracks]); setTrackDraft({title:'',artist:'',src:''}); }}>Add Track</button>
+      <div className="space-y-2">{musicTracks.length===0 ? <p className="text-gray-400">No tracks yet.</p> : musicTracks.map((t:any)=><div key={t.id} className="p-3 rounded-xl border border-white/10 bg-white/5"><p className="font-semibold">{t.title} <span className="text-xs text-gray-400">{t.artist}</span></p><audio src={t.src} controls className="w-full mt-2"/></div>)}</div>
+    </div></div>
+  );
+
   const renderMessenger = () => (
     <div className="h-screen w-screen bg-[#0a0502] flex flex-col md:flex-row overflow-hidden">
       {/* Sidebar */}
@@ -3015,6 +3157,11 @@ ${res.user.year_level || ''}`);
             {renderFeedbacks()}
           </motion.div>
         )}
+        {view === 'calendar' && (<motion.div key="calendar" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>{renderCalendar()}</motion.div>)}
+        {view === 'grades' && (<motion.div key="grades" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>{renderGrades()}</motion.div>)}
+        {view === 'stream' && (<motion.div key="stream" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>{renderStream()}</motion.div>)}
+        {view === 'reels' && (<motion.div key="reels" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>{renderReels()}</motion.div>)}
+        {view === 'music' && (<motion.div key="music" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }} transition={{ duration: 0.15 }}>{renderMusic()}</motion.div>)}
         {view === 'feedbacks' && (
           <motion.div
             key="feedbacks"
@@ -3038,6 +3185,8 @@ ${res.user.year_level || ''}`);
           </motion.div>
         )}
       </AnimatePresence>
+
+      <button onClick={() => navigateTo('assistant')} className="fixed bottom-6 right-6 z-50 rounded-full bg-amber-500 text-black p-4 shadow-lg cursor-pointer" title="Open JARVIS"><Bot size={20} /></button>
 
       {/* Global Navigation Overlay (Mobile) */}
       <div className="fixed top-6 right-6 z-50 md:hidden">
