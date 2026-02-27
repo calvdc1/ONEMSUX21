@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, FormEvent, useRef, forwardRef } from 'react';
-import type { HTMLProps, MutableRefObject } from 'react';
+import type { HTMLProps } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -58,8 +58,6 @@ interface User {
   program?: string;
   year_level?: string;
   department?: string;
-  is_verified?: number;
-  is_admin?: number;
 }
 
 interface Message {
@@ -163,15 +161,6 @@ const CAMPUSES: Campus[] = [
     top: "70%", left: "68%",
     color: "#4a148c"
   },
-  { 
-    name: "MSU Philippines Extension", 
-    slug: "msu-ph-extension", 
-    location: "Philippines", 
-    description: "Extension programs reaching more Filipino learners across the archipelago.",
-    stats: { students: "2k+", courses: "20+" },
-    top: "32%", left: "56%",
-    color: "#b99740"
-  },
 ];
 
 const SPARKLES = [
@@ -183,118 +172,48 @@ const SPARKLES = [
   { top: "82%", left: "60%" },
 ];
 
-const HomeNetworkBackground = () => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId = 0;
-    const nodeCount = 44;
-    const maxDistance = 155;
-    let width = 0;
-    let height = 0;
-
-    type Node = { x: number; y: number; vx: number; vy: number; r: number };
-    const nodes: Node[] = [];
-
-    const resetCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-
-    const spawnNodes = () => {
-      nodes.length = 0;
-      for (let i = 0; i < nodeCount; i += 1) {
-        nodes.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: (Math.random() - 0.5) * 0.4,
-          r: 1.2 + Math.random() * 1.6,
-        });
-      }
-    };
-
-    const tick = () => {
-      ctx.clearRect(0, 0, width, height);
-      for (const node of nodes) {
-        node.x += node.vx;
-        node.y += node.vy;
-
-        if (node.x <= 0 || node.x >= width) node.vx *= -1;
-        if (node.y <= 0 || node.y >= height) node.vy *= -1;
-
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(201, 161, 72, 0.55)';
-        ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      for (let i = 0; i < nodes.length; i += 1) {
-        for (let j = i + 1; j < nodes.length; j += 1) {
-          const a = nodes[i];
-          const b = nodes[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const distance = Math.hypot(dx, dy);
-          if (distance < maxDistance) {
-            const opacity = (1 - distance / maxDistance) * 0.18;
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(201, 161, 72, ${opacity.toFixed(3)})`;
-            ctx.lineWidth = 1;
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      animationFrameId = window.requestAnimationFrame(tick);
-    };
-
-    const handleResize = () => {
-      resetCanvas();
-      spawnNodes();
-    };
-
-    handleResize();
-    tick();
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 opacity-80" aria-hidden="true" />;
-};
-
 // --- Components ---
 
 const Logo = () => (
-  <img
-    src="https://cdn.builder.io/api/v1/image/assets%2F23368e21ff6f469fbe3b6cd7a12f765a%2F08f3caf3e05b4d4eaa2bdece65fb7125?format=webp&width=800&height=1200"
-    alt="ONEMSU Logo"
-    className="w-full h-full object-contain"
-  />
-);
-
-const JarvisLogo = () => (
-  <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-amber-500/20 to-rose-500/20 border border-amber-400/40 flex items-center justify-center">
-    <div className="absolute inset-0 rounded-full blur-xl bg-amber-500/10" />
-    <Bot className="text-amber-400" size={40} />
-  </div>
+  <svg viewBox="0 0 100 100" className="w-full h-full">
+    <defs>
+      <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f9e7a3" />
+        <stop offset="50%" stopColor="#f5d36b" />
+        <stop offset="100%" stopColor="#b99740" />
+      </linearGradient>
+      <filter id="logo-glow">
+        <feGaussianBlur stdDeviation="1.5" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+    </defs>
+    {/* Outer Ring */}
+    <circle cx="50" cy="50" r="48" fill="none" stroke="url(#gold-grad)" strokeWidth="3" />
+    <circle cx="50" cy="50" r="44" fill="none" stroke="url(#gold-grad)" strokeWidth="1" strokeOpacity="0.5" />
+    
+    {/* Inner Circle Background */}
+    <circle cx="50" cy="50" r="40" fill="#0a0502" />
+    
+    {/* Torch / Flame (Simplified SVG representation of the logo) */}
+    <path d="M50 20 L55 35 L45 35 Z" fill="#f59e0b" filter="url(#logo-glow)" />
+    <rect x="48" y="35" width="4" height="15" fill="url(#gold-grad)" />
+    
+    {/* Text Arc */}
+    <text 
+      x="50" y="65" 
+      textAnchor="middle" 
+      fill="url(#gold-grad)" 
+      fontSize="10" 
+      fontWeight="900" 
+      fontFamily="serif"
+      filter="url(#logo-glow)"
+    >
+      ONEMSU
+    </text>
+    
+    {/* Decorative Elements */}
+    <circle cx="50" cy="50" r="35" fill="none" stroke="url(#gold-grad)" strokeWidth="0.5" strokeDasharray="2 2" />
+  </svg>
 );
 
 const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, className?: string }) => {
@@ -320,13 +239,7 @@ const CampusLogo = ({ slug, className = "w-full h-full" }: { slug: string, class
 };
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('onemsu_splash_shown') !== 'true';
-    }
-    return true;
-  });
-  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks' | 'lostfound' | 'system'>('home');
+  const [view, setView] = useState<'home' | 'explorer' | 'about' | 'dashboard' | 'messenger' | 'newsfeed' | 'profile' | 'confession' | 'feedbacks'>('home');
   const [selectedCampus, setSelectedCampus] = useState<Campus | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -334,15 +247,6 @@ export default function App() {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [signupCodeSending, setSignupCodeSending] = useState(false);
-  const [signupDevCode, setSignupDevCode] = useState<string | null>(null);
-  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
-  const [isJarvisOpen, setIsJarvisOpen] = useState(false);
-  const [isJarvisLoading, setIsJarvisLoading] = useState(false);
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupEmailExists, setSignupEmailExists] = useState<boolean | null>(null);
-  const [loginPrefillEmail, setLoginPrefillEmail] = useState<string>('');
-  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('onemsu_auth') === 'true';
@@ -376,10 +280,7 @@ export default function App() {
   const [freedomText, setFreedomText] = useState('');
   const [freedomImagePreview, setFreedomImagePreview] = useState<string | null>(null);
   const isOwner = (email?: string) => email === 'xandercamarin@gmail.com' || email === 'sophiakayeaninao@gmail.com';
-const isVerified = (email?: string, u?: User | null) => {
-  if (u && typeof u.is_verified !== 'undefined') return !!u.is_verified;
-  return isOwner(email) || email === 'krisandrea.gonzaga@g.msuiit.edu.ph' || email === 'marcoalfons.bollozos@g.msuiit.edu.ph';
-};
+  const isVerified = (email?: string) => isOwner(email) || email === 'krisandrea.gonzaga@g.msuiit.edu.ph' || email === 'marcoalfons.bollozos@g.msuiit.edu.ph';
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string } | null>(null);
   const [newGroup, setNewGroup] = useState<{ name: string; description: string; campus: string; logoPreview: string | null }>({ name: '', description: '', campus: '', logoPreview: null });
   const [dashboardCreateOpen, setDashboardCreateOpen] = useState(false);
@@ -395,8 +296,6 @@ const isVerified = (email?: string, u?: User | null) => {
   const [compactBubbles, setCompactBubbles] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
   const [toast, setToast] = useState<{ message: string; roomId: string } | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const processedMessageIds = useRef<Set<string>>(new Set());
   const pendingClientIds = useRef<Set<string>>(new Set());
@@ -407,7 +306,6 @@ const isVerified = (email?: string, u?: User | null) => {
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Map<number, MediaStream>>(new Map());
-  const [adminSettings, setAdminSettings] = useState<{ jarvisEnabled?: boolean; maintenanceMode?: boolean; showExploreButton?: boolean; windowsExeUrl?: string; androidApkUrl?: string; iosUrl?: string; requireSignupCode?: boolean }>({});
 
   const normalizeIncoming = (raw: any) => {
     // Accept both server styles: roomId vs room_id, senderId vs sender_id, etc.
@@ -456,16 +354,6 @@ const isVerified = (email?: string, u?: User | null) => {
     localStorage.setItem('onemsu_unread', JSON.stringify(unreadCounts));
   }, [unreadCounts]);
 
-  useEffect(() => {
-    if (showSplash) {
-      const timer = setTimeout(() => {
-        setShowSplash(false);
-        localStorage.setItem('onemsu_splash_shown', 'true');
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSplash]);
-
   const [notesByRoom, setNotesByRoom] = useState<Record<string, string>>(() => {
     try {
       const key = typeof window !== 'undefined'
@@ -495,11 +383,6 @@ const isVerified = (email?: string, u?: User | null) => {
     }
   };
 
-  const responseMessage = (payload: any, fallback: string) => {
-    const message = payload?.message;
-    return typeof message === 'string' && message.trim() ? message : fallback;
-  };
-
   const virtuosoRef = useRef<any>(null);
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({}); // roomId -> names[]
@@ -509,34 +392,20 @@ const isVerified = (email?: string, u?: User | null) => {
 
   // Effect to populate DM list from local storage or API
   useEffect(() => {
-    if (!user) {
-      setDirectMessageList([]);
-      return;
+    if (user) {
+      // Load saved DM list
+      const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
+      if (savedDMs) {
+        setDirectMessageList(JSON.parse(savedDMs));
+      }
     }
-
-    const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
-    if (!savedDMs) {
-      setDirectMessageList([]);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(savedDMs);
-      setDirectMessageList(Array.isArray(parsed) ? parsed : []);
-    } catch {
-      setDirectMessageList([]);
-    if (savedDMs) {
-      setDirectMessageList(JSON.parse(savedDMs));
-      return;
-    }
-
-    setDirectMessageList([]);
   }, [user]);
 
   // Save DM list when it changes
   useEffect(() => {
-    if (!user) return;
-    localStorage.setItem(`onemsu_dms_${user.id}`, JSON.stringify(directMessageList));
+    if (user && directMessageList.length > 0) {
+      localStorage.setItem(`onemsu_dms_${user.id}`, JSON.stringify(directMessageList));
+    }
   }, [directMessageList, user]);
 
   const addToDMList = (otherUser: { id: number; name: string; avatar?: string; campus?: string }) => {
@@ -554,21 +423,6 @@ const isVerified = (email?: string, u?: User | null) => {
     });
   };
 
-  // Initialize AI Assistant with greeting on first open
-  useEffect(() => {
-    if (activeRoom === 'dm-ai-assistant' && messages.length === 0 && user) {
-      const greetingMsg = {
-        id: `ai-greeting-${Date.now()}`,
-        sender_id: 0,
-        sender_name: 'ONEMSU AI',
-        content: `Hello ${user.name}! 👋 I'm your ONEMSU AI Assistant. I'm here to help you with anything related to MSU, academic advice, campus life, or general knowledge. Feel free to ask me anything!`,
-        room_id: 'dm-ai-assistant',
-        timestamp: new Date().toISOString()
-      };
-      setMessages([greetingMsg as any]);
-    }
-  }, [activeRoom, user, messages.length]);
-
   const isUserOnline = (userId: number) => onlineUsers.includes(userId);
 
   const [enrolledCourses, setEnrolledCourses] = useState<string[]>(() => {
@@ -580,25 +434,13 @@ const isVerified = (email?: string, u?: User | null) => {
   });
 
   useEffect(() => {
-    let animationFrameId = 0;
-
     const handleMouseMove = (e: MouseEvent) => {
-      if (animationFrameId) return;
-      animationFrameId = window.requestAnimationFrame(() => {
-        const nx = (e.clientX / window.innerWidth - 0.5) * 2;
-        const ny = (e.clientY / window.innerHeight - 0.5) * 2;
-        setMouse({ x: nx, y: ny });
-        animationFrameId = 0;
-      });
+      const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+      const ny = (e.clientY / window.innerHeight - 0.5) * 2;
+      setMouse({ x: nx, y: ny });
     };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => {
-      if (animationFrameId) {
-        window.cancelAnimationFrame(animationFrameId);
-      }
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   useEffect(() => {
@@ -769,12 +611,12 @@ const isVerified = (email?: string, u?: User | null) => {
       setFirstItemIndex(START_INDEX);
       setIsLoadingMore(true);
 
-      const url = `/api/messages/${activeRoom}?userId=${user?.id || ''}&limit=500`;
+      const url = `/api/messages/${activeRoom}?userId=${user?.id || ''}&limit=6`;
       fetch(url)
         .then(res => res.json())
         .then((data: Message[]) => {
           setMessages(data);
-          setHasMore(data.length >= 500);
+          setHasMore(data.length >= 6);
           // On room change, scroll to bottom
           requestAnimationFrame(() => {
             if (virtuosoRef.current) {
@@ -817,25 +659,6 @@ const isVerified = (email?: string, u?: User | null) => {
       localStorage.setItem(key, JSON.stringify(stickyNotes));
     } catch {}
   }, [stickyNotes, user]);
-  useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(res => {
-        if (res && res.success && res.settings) setAdminSettings(res.settings);
-      })
-      .catch(() => {});
-  }, []);
-  useEffect(() => {
-    const v = signupEmail.trim();
-    if (!v) { setSignupEmailExists(null); return; }
-    const t = setTimeout(async () => {
-      try {
-        const r = await fetch(`/api/auth/check-email?email=${encodeURIComponent(v)}`).then(r => r.json());
-        setSignupEmailExists(!!r.exists);
-      } catch { setSignupEmailExists(null); }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [signupEmail]);
   useEffect(() => {
     try {
       const key = user ? `onemsu_stickies_${user.id}` : 'onemsu_stickies_guest';
@@ -1119,26 +942,6 @@ const isVerified = (email?: string, u?: User | null) => {
     }
   };
 
-  const VoiceTile = ({ stream }: { stream: MediaStream }) => {
-    const vref = useRef<HTMLVideoElement | null>(null);
-    useEffect(() => {
-      if (vref.current) {
-        (vref.current as any).srcObject = stream;
-      }
-    }, [stream]);
-    return <video ref={vref} autoPlay playsInline muted className="w-28 h-20 rounded-lg object-cover border border-white/10" />;
-  };
-
-  const LocalTile = ({ streamRef }: { streamRef: MutableRefObject<MediaStream | null> }) => {
-    const vref = useRef<HTMLVideoElement | null>(null);
-    useEffect(() => {
-      if (vref.current && streamRef.current) {
-        (vref.current as any).srcObject = streamRef.current;
-      }
-    }, [streamRef.current]);
-    return <video ref={vref} autoPlay playsInline muted className="w-28 h-20 rounded-lg object-cover border border-amber-500/30" />;
-  };
-
   const removePeerConnection = (userId: number) => {
     const pc = peerConnections.current.get(userId);
     if (pc) {
@@ -1240,18 +1043,19 @@ const isVerified = (email?: string, u?: User | null) => {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await safeJson(res);
-      if (res.ok && data.success) {
-        setUser(data.user);
-        setIsLoggedIn(true);
-        setIsLoginOpen(false);
-        setIsAuthLoading(false);
+      const data = await res.json();
+      if (data.success) {
+        setTimeout(() => {
+          setUser(data.user);
+          setIsLoggedIn(true);
+          setIsLoginOpen(false);
+          setIsAuthLoading(false);
+        }, 1000);
       } else {
-        alert(responseMessage(data, 'Login failed. Please check your credentials and try again.'));
+        alert(data.message);
         setIsAuthLoading(false);
       }
     } catch {
-      alert('Login failed. Please try again.');
       setIsAuthLoading(false);
     }
   };
@@ -1263,36 +1067,29 @@ const isVerified = (email?: string, u?: User | null) => {
     const name = formData.get('name') as string;
     const password = formData.get('password') as string;
     const campus = formData.get('campus') as string;
-    const code = formData.get('code') as string;
 
     setIsAuthLoading(true);
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, campus, code })
+        body: JSON.stringify({ name, email, password, campus })
       });
 
-      const data = await safeJson(res);
-      if (res.ok && data.success) {
-        setUser(data.user);
-        setIsLoggedIn(true);
-        setIsSignupOpen(false);
-        setIsAuthLoading(false);
-      } else {
-        if (String(data.message || '').toLowerCase().includes('exists')) {
+      const data = await res.json();
+      if (data.success) {
+        setTimeout(() => {
+          setUser(data.user);
+          setIsLoggedIn(true);
           setIsSignupOpen(false);
-          setLoginPrefillEmail(email);
-          setIsLoginOpen(true);
-          setTimeout(() => alert('Email already exists. Please log in or reset your password.'), 10);
-        } else {
-          alert(responseMessage(data, 'Signup failed. Please review your details and try again.'));
-        }
+          setIsAuthLoading(false);
+        }, 1000);
+      } else {
+        alert(data.message);
         setIsAuthLoading(false);
       }
     } catch {
       setIsAuthLoading(false);
-      alert('Signup failed. Please try again.');
     }
   };
 
@@ -1302,14 +1099,6 @@ const isVerified = (email?: string, u?: User | null) => {
     setView('home');
     localStorage.removeItem('onemsu_auth');
     localStorage.removeItem('onemsu_user');
-  };
-  const beginSignOut = () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    setTimeout(() => {
-      handleLogout();
-      setSigningOut(false);
-    }, 250);
   };
 
   const handleForgotPassword = async (e: FormEvent<HTMLFormElement>) => {
@@ -1323,20 +1112,19 @@ const isVerified = (email?: string, u?: User | null) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
-      });
-      const data = await safeJson(res);
+      }).then(r => r.json());
 
       setIsAuthLoading(false);
-      if (res.ok && data.success) {
-        alert(responseMessage(data, 'Reset instructions sent to your email.'));
+      if (res.success) {
+        alert(res.message);
         setIsForgotOpen(false);
         setIsLoginOpen(true);
       } else {
-        alert(responseMessage(data, 'Failed to send reset link. Please try again later.'));
+        alert(res.message);
       }
     } catch {
       setIsAuthLoading(false);
-      alert('Failed to send reset link. Please try again later.');
+      alert("Failed to send reset link. Please try again later.");
     }
   };
 
@@ -1375,48 +1163,29 @@ const isVerified = (email?: string, u?: User | null) => {
       .reduce((sum, [_, count]) => (sum as number) + (count as number), 0);
 
     return (
-    <div className="h-full w-full bg-[#0a0502] flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex justify-between items-center p-4 md:p-6 border-b border-white/5 shrink-0">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
-            <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
+    <div className="h-full w-full bg-[#0a0502] p-4 md:p-8 lg:p-12 overflow-y-auto scrollbar-hide">
+      <div className="max-w-7xl mx-auto pb-20">
+        <header className="flex justify-between items-center mb-12">
+          <div className="flex items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Welcome back, {user?.name || 'MSUan'}!</h2>
+              <p className="text-gray-500 text-sm">Connected to {user?.email || 'Unified System'}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={beginSignOut}
-            disabled={signingOut}
-            className="relative overflow-hidden px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium disabled:opacity-70"
-          >
-            <span className="relative z-10">{signingOut ? 'Signing out…' : 'Sign Out'}</span>
-            {signingOut && (
-              <motion.span
-                initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ duration: 8, ease: 'linear' }}
-                className="absolute inset-y-0 left-0 bg-amber-500/20"
-              />
-            )}
-          </button>
-        </div>
-      </header>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+            >
+              Sign Out
+            </button>
+          </div>
+        </header>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden min-w-0">
-        {/* Left Main Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 md:p-6 border-r border-white/5">
-          <div className="max-w-4xl">
-            <div className="card-gold p-4 md:p-8 rounded-3xl relative">
-              <button
-                onClick={() => setMobilePanelOpen(true)}
-                className="md:hidden absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold shadow-md"
-                aria-label="Open panel"
-                title="Open panel"
-              >
-                Panel
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Main Feed */}
+          <div className="lg:col-span-3 space-y-8">
+            <div className="card-gold p-8 rounded-3xl">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                 <Sparkles className="text-amber-500" size={20} /> Confession Wall
               </h3>
@@ -1445,7 +1214,7 @@ const isVerified = (email?: string, u?: User | null) => {
             </div>
 
             <div className="grid grid-cols-1 gap-6">
-              <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10">
+              <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-bold flex items-center gap-2"><Users size={18} className="text-amber-500" /> Community Groups</h4>
                   <button
@@ -1562,32 +1331,28 @@ const isVerified = (email?: string, u?: User | null) => {
               </div>
             </div>
           </div>
-          
-        </div>
 
-        {/* Right Sidebar Panel */}
-        <div className="w-80 shrink-0 overflow-y-auto scrollbar-hide border-l border-white/5 p-4 space-y-4 hidden md:block">
-            <div className="card-gold p-4 rounded-2xl">
-              <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-2">
+          {/* Right Side Panel */}
+          <div className="space-y-8">
+            <div className="card-gold p-6 rounded-3xl">
+              <h3 className="font-bold mb-4">Quick Actions</h3>
+              <div className="grid grid-cols-2 gap-3">
                 {[
-                  { name: 'Messenger', icon: <MessageCircle size={12} />, action: () => setView('messenger'), unread: messengerUnread },
-                  { name: 'Library', icon: <BookOpen size={12} />, action: () => window.open('https://openlibrary.org', '_blank') },
-                  { name: 'Grades', icon: <Sparkles size={12} /> },
-                  { name: 'Finance', icon: <ShieldCheck size={12} /> },
-                  { name: 'JARVIS X3', icon: <ExternalLink size={12} />, action: () => setIsJarvisOpen(true) },
-                  { name: 'Discord', icon: <ExternalLink size={12} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
-                  { name: 'Profile', icon: <Users size={12} />, action: () => setView('profile') },
-                  { name: 'Updates', icon: <MessageSquare size={12} />, action: () => setView('newsfeed'), unread: updatesUnread },
-                  { name: 'Confession', icon: <Sparkles size={12} />, action: () => setView('confession') },
-                  { name: 'Explorer', icon: <Globe size={12} />, action: () => setView('explorer') },
-                  { name: 'Feedbacks', icon: <Info size={12} />, action: () => setView('feedbacks') },
-                  { name: 'Lost & Found', icon: <Search size={12} />, action: () => setView('lostfound') }
+                  { name: 'Messenger', icon: <MessageCircle size={14} />, action: () => setView('messenger'), unread: messengerUnread },
+                  { name: 'Library', icon: <BookOpen size={14} />, action: () => window.open('https://openlibrary.org', '_blank') },
+                  { name: 'Grades', icon: <Sparkles size={14} /> },
+                  { name: 'Finance', icon: <ShieldCheck size={14} /> },
+                  { name: 'Discord', icon: <ExternalLink size={14} />, action: () => window.open('https://discord.gg/gjuygmrPnR', '_blank') },
+                  { name: 'Profile', icon: <Users size={14} />, action: () => setView('profile') },
+                  { name: 'Updates', icon: <MessageSquare size={14} />, action: () => setView('newsfeed'), unread: updatesUnread },
+                  { name: 'Confession', icon: <Sparkles size={14} />, action: () => setView('confession') },
+                  { name: 'Explorer', icon: <Globe size={14} />, action: () => setView('explorer') },
+                  { name: 'Feedbacks', icon: <Info size={14} />, action: () => setView('feedbacks') }
                 ].map(item => (
-                  <button
-                    key={item.name}
+                  <button 
+                    key={item.name} 
                     onClick={() => item.action ? item.action() : null}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-medium hover:bg-amber-500 hover:text-black transition-all flex flex-col items-center gap-1 relative group"
+                    className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium hover:bg-amber-500 hover:text-black transition-all flex flex-col items-center gap-2 relative group"
                   >
                     {(item as any).unread > 0 && (
                       <motion.span
@@ -1611,21 +1376,38 @@ const isVerified = (email?: string, u?: User | null) => {
               </div>
             </div>
 
-            <div className="card-gold p-4 rounded-2xl">
-              <h3 className="font-bold mb-3 text-sm flex items-center gap-2"><Globe size={16} className="text-amber-500" /> Campuses</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-                {CAMPUSES.slice(0, 5).map((c) => (
-                  <div key={c.slug} className="p-3 rounded-lg bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
-                    <div className="flex items-start gap-2">
-                      <div className="w-8 h-8 shrink-0 rounded-lg overflow-hidden">
+            <div className="card-gold p-6 rounded-3xl">
+              <h3 className="font-bold mb-4 flex items-center gap-2"><Globe size={18} className="text-amber-500" /> Campus Information</h3>
+              <div className="space-y-3">
+                {CAMPUSES.map((c) => (
+                  <div key={c.slug} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/30 transition-all group">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden shadow-lg">
                         <CampusLogo slug={c.slug} />
                       </div>
-                      <div className="flex-1 min-w-0 text-xs">
-                        <div className="flex justify-between items-start gap-1">
-                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{c.name}</h4>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-bold text-white group-hover:text-amber-400 transition-colors">{c.name}</h4>
+                          <button 
+                            onClick={() => setSelectedCampus(c)}
+                            className="text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 hover:bg-amber-500 hover:text-black transition-colors"
+                          >
+                            About
+                          </button>
                         </div>
-                        <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                          <MapPin size={8} /> {c.location.split(',')[0]}
+                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1 mb-2">
+                          <MapPin size={10} /> {c.location}
+                        </div>
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {c.description}
+                        </p>
+                        <div className="flex gap-3 mt-3 pt-3 border-t border-white/5">
+                           <div className="text-[10px] text-gray-500">
+                             <span className="text-amber-500 font-bold">{c.stats.students}</span> Students
+                           </div>
+                           <div className="text-[10px] text-gray-500">
+                             <span className="text-amber-500 font-bold">{c.stats.courses}</span> Programs
+                           </div>
                         </div>
                       </div>
                     </div>
@@ -1634,9 +1416,9 @@ const isVerified = (email?: string, u?: User | null) => {
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-bold text-sm flex items-center gap-2"><BookOpen size={14} className="text-amber-500" /> Notes</h4>
+            <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-bold flex items-center gap-2"><BookOpen size={18} className="text-amber-500" /> Notes</h4>
                 <button
                   onClick={() => {
                     const palette = [
@@ -1650,28 +1432,28 @@ const isVerified = (email?: string, u?: User | null) => {
                     const color = palette[Math.floor(Math.random() * palette.length)];
                     setStickyNotes(prev => [{ id, content: '', color, createdAt: new Date().toISOString() }, ...prev]);
                   }}
-                  className="p-1 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
+                  className="p-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
                   title="Add note"
                   aria-label="Add note"
                 >
-                  <Plus size={14} />
+                  <Plus size={16} />
                 </button>
               </div>
               {stickyNotes.length === 0 ? (
-                <p className="text-xs text-gray-500">Use + to create a note.</p>
+                <p className="text-sm text-gray-500">No notes yet. Use + to create a sticky note.</p>
               ) : (
-                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto scrollbar-hide">
-                  {stickyNotes.slice(0, 2).map(n => (
-                    <div key={n.id} className={`p-2 rounded-lg border ${n.color} transition-all hover:scale-[1.02]`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-[8px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
+                <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto scrollbar-hide">
+                  {stickyNotes.slice(0, 4).map(n => (
+                    <div key={n.id} className={`p-3 rounded-2xl border ${n.color} transition-all hover:scale-[1.02]`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
                         <button
                           className="text-xs text-white/60 hover:text-white transition-colors"
                           onClick={() => setStickyNotes(prev => prev.filter(x => x.id !== n.id))}
                           title="Delete note"
                           aria-label="Delete note"
                         >
-                          <X size={12} />
+                          <X size={14} />
                         </button>
                       </div>
                       <textarea
@@ -1680,8 +1462,8 @@ const isVerified = (email?: string, u?: User | null) => {
                           const v = e.target.value;
                           setStickyNotes(prev => prev.map(x => x.id === n.id ? { ...x, content: v } : x));
                         }}
-                        placeholder="Note…"
-                        className="w-full h-16 bg-transparent text-xs text-white placeholder-white/40 focus:outline-none resize-none"
+                        placeholder="Write a note…"
+                        className="w-full h-28 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none resize-none"
                       />
                     </div>
                   ))}
@@ -1690,297 +1472,34 @@ const isVerified = (email?: string, u?: User | null) => {
             </div>
 
             {/* Feedbacks moved to its own view via Quick Actions */}
+          </div>
         </div>
       </div>
-      
-      {/* Mobile Right Drawer */}
-      <AnimatePresence>
-        {mobilePanelOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 md:hidden"
-            onClick={() => setMobilePanelOpen(false)}
-          >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="absolute right-0 top-0 h-full w-[85vw] bg-[#0a0502] border-l border-white/10 p-4 space-y-4 overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-metallic-gold">Panel</h3>
-                <button onClick={() => setMobilePanelOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="card-gold p-4 rounded-仍">
-                <h3 className="font-bold mb-3 text-sm">Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { name: 'Messenger', icon: <MessageCircle size={12} />, action: () => { setView('messenger'); setMobilePanelOpen(false); } },
-                    { name: 'Library', icon: <BookOpen size={12} />, action: () => window.open('https://openlibrary.org', '_blank') },
-                    { name: 'Grades', icon: <Sparkles size={12} /> },
-                    { name: 'Finance', icon: <ShieldCheck size={12} /> },
-                    ...(adminSettings.jarvisEnabled === true ? [{ name: 'JARVIS X3', icon: <ExternalLink size={12} />, action: () => { setIsJarvisLoading(true); setTimeout(() => { setIsJarvisLoading(false); setIsJarvisOpen(true); }, 10000); setMobilePanelOpen(false); (document.documentElement as any).requestFullscreen?.().catch?.(() => {}); } }] : []),
-                    { name: 'Profile', icon: <Users size={12} />, action: () => { setView('profile'); setMobilePanelOpen(false); } },
-                    { name: 'Explorer', icon: <Globe size={12} />, action: () => { setView('explorer'); setMobilePanelOpen(false); } },
-                    { name: 'Confession', icon: <Sparkles size={12} />, action: () => { setView('confession'); setMobilePanelOpen(false); } },
-                    { name: 'Feedbacks', icon: <Info size={12} />, action: () => { setView('feedbacks'); setMobilePanelOpen(false); } },
-                  ].map(item => (
-                    <button
-                      key={item.name}
-                      onClick={() => item.action ? item.action() : null}
-                      className="p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-medium hover:bg-white/10 hover:text-white transition-all flex flex-col items-center gap-1"
-                    >
-                      {item.icon}
-                      {item.name}
-                    </button>
-                  ))}
-                  {user && isOwner(user.email) && (
-                    <button
-                      onClick={() => { setView('system'); setMobilePanelOpen(false); }}
-                      className="p-2 rounded-lg bg-white/5 border border-white/10 text-[10px] font-medium hover:bg-white/10 hover:text-white transition-all flex flex-col items-center gap-1"
-                    >
-                      <Settings size={12} />
-                      System
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="card-gold p-4 rounded-2xl">
-                <h3 className="font-bold mb-3 text-sm flex items-center gap-2"><Globe size={16} className="text-amber-500" /> Campuses</h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-hide">
-                  {CAMPUSES.map((c) => (
-                    <button
-                      key={c.slug}
-                      onClick={() => { setSelectedCampus(c); setView('explorer'); setMobilePanelOpen(false); }}
-                      className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-left"
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="w-8 h-8 shrink-0 rounded-lg overflow-hidden">
-                          <CampusLogo slug={c.slug} />
-                        </div>
-                        <div className="flex-1 min-w-0 text-xs">
-                          <div className="flex justify-between items-start gap-1">
-                            <h4 className="font-bold text-white line-clamp-1">{c.name}</h4>
-                          </div>
-                          <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                            <MapPin size={8} /> {c.location.split(',')[0]}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-bold text-sm flex items-center gap-2"><BookOpen size={14} className="text-amber-500" /> Notes</h4>
-                  <button
-                    onClick={() => {
-                      const palette = [
-                        'bg-amber-500/20 border-amber-500/30',
-                        'bg-rose-500/20 border-rose-500/30',
-                        'bg-emerald-500/20 border-emerald-500/30',
-                        'bg-sky-500/20 border-sky-500/30',
-                        'bg-purple-500/20 border-purple-500/30'
-                      ];
-                      const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-                      const color = palette[Math.floor(Math.random() * palette.length)];
-                      setStickyNotes(prev => [{ id, content: '', color, createdAt: new Date().toISOString() }, ...prev]);
-                    }}
-                    className="p-1 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20"
-                    title="Add note"
-                    aria-label="Add note"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-                {stickyNotes.length === 0 ? (
-                  <p className="text-xs text-gray-500">Use + to create a note.</p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto scrollbar-hide">
-                    {stickyNotes.slice(0, 4).map(n => (
-                      <div key={n.id} className={`p-2 rounded-lg border ${n.color} transition-all`}>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[8px] text-white/60 font-medium">{new Date(n.createdAt).toLocaleDateString()}</span>
-                          <button
-                            className="text-xs text-white/60 hover:text-white transition-colors"
-                            onClick={() => setStickyNotes(prev => prev.filter(x => x.id !== n.id))}
-                            title="Delete note"
-                            aria-label="Delete note"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                        <textarea
-                          value={n.content}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setStickyNotes(prev => prev.map(x => x.id === n.id ? { ...x, content: v } : x));
-                          }}
-                          placeholder="Write a note..."
-                          className="w-full bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none resize-none"
-                          rows={3}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {isDownloadOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-            onClick={() => setIsDownloadOpen(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ type: "spring", damping: 24, stiffness: 220 }}
-              className="relative w-full max-w-md p-6 rounded-2xl bg-[#0a0502] border border-white/10 text-gray-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-lg font-bold text-metallic-gold">Download Apps</div>
-                <button onClick={() => setIsDownloadOpen(false)} className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5">
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <button
-                  disabled={!adminSettings.windowsExeUrl}
-                  onClick={() => { if (adminSettings.windowsExeUrl) window.open(String(adminSettings.windowsExeUrl), '_blank'); }}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-colors ${adminSettings.windowsExeUrl ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}
-                >
-                  Windows (.exe)
-                </button>
-                <button
-                  disabled={!adminSettings.androidApkUrl}
-                  onClick={() => { if (adminSettings.androidApkUrl) window.open(String(adminSettings.androidApkUrl), '_blank'); }}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-colors ${adminSettings.androidApkUrl ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}
-                >
-                  Android (.apk)
-                </button>
-                <button
-                  disabled={!adminSettings.iosUrl}
-                  onClick={() => { if (adminSettings.iosUrl) window.open(String(adminSettings.iosUrl), '_blank'); }}
-                  className={`w-full px-4 py-3 rounded-xl font-bold transition-colors ${adminSettings.iosUrl ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}
-                >
-                  iOS
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
   };
 
   const renderHome = () => (
-    <div className="relative flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 md:p-8 text-center overflow-hidden hero-metallic">
-      <HomeNetworkBackground />
+    <div className="relative flex flex-col items-center justify-center min-h-screen p-8 text-center overflow-hidden hero-metallic">
       {/* Navigation Header */}
-      <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-between items-center z-50">
-        <div className="flex items-center gap-2 md:gap-3 font-bold text-lg md:text-xl cursor-pointer" onClick={() => setView('home')}>
-          <div className="w-12 h-12 md:w-16 md:h-16 rounded-lg border-2 border-amber-500 p-1 bg-black/40 shrink-0">
+      <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-50">
+        <div className="flex items-center gap-3 font-bold text-xl cursor-pointer" onClick={() => setView('home')}>
+          <div className="w-12 h-12">
             <Logo />
           </div>
-          <span className="hidden sm:inline tracking-tighter text-sm md:text-base">ONE<span className="text-amber-500">MSU</span></span>
+          <span className="hidden sm:inline tracking-tighter">ONE<span className="text-amber-500">MSU</span></span>
         </div>
-        <div className="hidden md:flex items-center gap-6 md:gap-8 text-xs md:text-sm font-medium">
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium">
           <button onClick={() => setView('explorer')} className="text-gray-400 hover:text-white transition-colors">Campuses</button>
-          <button
-            onClick={() => setIsDownloadOpen(true)}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            Download
-          </button>
-          {(adminSettings.jarvisEnabled === true) && (
-            <button
-              onClick={() => {
-                setIsJarvisLoading(true);
-                setTimeout(() => {
-                  setIsJarvisLoading(false);
-                  setIsJarvisOpen(true);
-                }, 10000);
-                (document.documentElement as any).requestFullscreen?.().catch?.(() => {});
-              }}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              JARVIS X3
-            </button>
-          )}
           <button onClick={() => setView('about')} className="text-gray-400 hover:text-white transition-colors">About</button>
-          {isLoggedIn && user && isOwner(user.email) && (
-            <button
-              onClick={() => setView('system')}
-              className="text-gray-400 hover:text-white transition-colors"
-              title="System"
-            >
-              System
-            </button>
-          )}
-          <button
+          <button 
             onClick={() => isLoggedIn ? setView('dashboard') : setIsLoginOpen(true)}
-            className="px-4 md:px-5 py-2 rounded-full bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
+            className="px-5 py-2 rounded-full bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
           >
             {isLoggedIn ? 'Dashboard' : 'Sign In'}
           </button>
         </div>
       </div>
-      
-      <AnimatePresence>
-        {(isJarvisOpen || isJarvisLoading) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] bg-black"
-          >
-            {isJarvisLoading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                <JarvisLogo />
-                <div className="text-gray-400 text-sm">Launching Assistant…</div>
-                <div className="w-32 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                  <motion.div className="h-full bg-amber-500" initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 10, ease: 'linear' }} />
-                </div>
-              </div>
-            ) : (
-              <div className="absolute inset-0">
-                <iframe
-                  src="https://jarvis-x3-762385435387.us-west1.run.app/"
-                  title="JARVIS X3"
-                  className="w-full h-full border-0"
-                  allow="camera; microphone; fullscreen; autoplay; clipboard-read; clipboard-write"
-                  allowFullScreen
-                />
-              </div>
-            )}
-            <button
-              onClick={() => setIsJarvisOpen(false)}
-              className="absolute top-4 right-4 z-[1000] p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
-              aria-label="Close"
-            >
-              <X size={20} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Background Elements */}
       <motion.div
@@ -2005,38 +1524,6 @@ const isVerified = (email?: string, u?: User | null) => {
           className="pointer-events-none absolute w-1.5 h-1.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(245,197,24,0.6)]"
         />
       ))}
-      <AnimatePresence>
-        {isLogoModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6"
-            onClick={() => setIsLogoModalOpen(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ type: "spring", damping: 24, stiffness: 220 }}
-              className="relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => setIsLogoModalOpen(false)}
-                className="absolute -top-3 -right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-              <div className="w-56 h-56 sm:w-72 sm:h-72 md:w-96 md:h-96">
-                <Logo />
-              </div>
-              <div className="text-center mt-4 text-xs text-gray-400">Mindanao State University — Mixed Campus Emblem</div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Campus Chips (Floating) */}
       {CAMPUSES.map((c, i) => (
@@ -2071,55 +1558,43 @@ const isVerified = (email?: string, u?: User | null) => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-100/10 text-amber-200 text-[10px] sm:text-xs md:text-sm mb-4 md:mb-6 whitespace-nowrap"
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-100/10 text-amber-200 text-xs md:text-sm mb-6"
         >
           <motion.span
-            className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
+            className="w-2 h-2 rounded-full bg-amber-400"
             animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
           Mindanao State University
         </motion.div>
 
-        <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter mb-4 md:mb-6 text-metallic-gold">
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-6 text-metallic-gold">
           ONE<span className="text-white">MSU</span>
         </h1>
 
-        <p className="text-base md:text-lg lg:text-xl text-gray-300/90 max-w-2xl mb-8 md:mb-12 leading-relaxed px-4">
+        <p className="text-lg md:text-xl text-gray-300/90 max-w-2xl mb-12 leading-relaxed">
           The digital heart of the MSU community. Connect, explore, and thrive across all campuses in one unified experience.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full max-w-md px-4">
-          {adminSettings.showExploreButton === true ? (
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setView('explorer')}
+            className="flex-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
+          >
+            Explore Campuses <ArrowRight size={18} />
+          </motion.button>
+          
+          {!isLoggedIn && (
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setView('explorer')}
-              className="flex-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20 text-sm sm:text-base"
+              onClick={() => setIsLoginOpen(true)}
+              className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-4 rounded-xl font-bold backdrop-blur-md transition-colors"
             >
-              Explore Campuses <ArrowRight size={16} className="hidden sm:inline" />
+              Log in
             </motion.button>
-          ) : null}
-
-          {!isLoggedIn && (
-            <>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setIsSignupOpen(true)}
-                className="flex-1 bg-amber-500 text-black py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold shadow-lg shadow-amber-900/20 hover:bg-amber-400 transition-colors text-sm sm:text-base"
-              >
-                Create Account
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setIsLoginOpen(true)}
-                className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 sm:py-4 rounded-lg sm:rounded-xl font-bold backdrop-blur-md transition-colors text-sm sm:text-base"
-              >
-                Log in
-              </motion.button>
-            </>
           )}
         </div>
       </motion.div>
@@ -2127,62 +1602,62 @@ const isVerified = (email?: string, u?: User | null) => {
       {/* Login Modal */}
       <AnimatePresence>
         {isLoginOpen && (
-          <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
+              className="w-full max-w-md card-gold p-8 rounded-3xl"
             >
-              <div className="flex justify-between items-center mb-6 md:mb-8">
-                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Connect to ONEMSU</h3>
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-bold text-metallic-gold">Connect to ONEMSU</h3>
                 <button onClick={() => setIsLoginOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
-              <form className="space-y-4 md:space-y-6" onSubmit={handleLogin}>
+              <form className="space-y-6" onSubmit={handleLogin}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email / ID</label>
-                  <input
+                  <input 
                     name="email"
-                    type="email"
+                    type="email" 
                     placeholder="e.g. juan.delacruz@msumain.edu.ph"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
-                  <input
+                  <input 
                     name="password"
-                    type="password"
+                    type="password" 
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 text-xs">
+                <div className="flex items-center justify-between text-xs">
                   <label className="flex items-center gap-2 text-gray-400 cursor-pointer">
                     <input type="checkbox" className="rounded border-white/10 bg-white/5 text-amber-500" />
-                    <span className="text-xs">Remember me</span>
+                    Remember me
                   </label>
-                  <button
+                  <button 
                     type="button"
                     onClick={() => { setIsLoginOpen(false); setIsForgotOpen(true); }}
-                    className="text-amber-500 hover:underline text-left sm:text-right text-xs"
+                    className="text-amber-500 hover:underline"
                   >
                     Forgot password?
                   </button>
                 </div>
-                <button
+                <button 
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Connecting...
@@ -2192,41 +1667,8 @@ const isVerified = (email?: string, u?: User | null) => {
                   )}
                 </button>
               </form>
-
-              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5">
-                <h4 className="text-xs md:text-sm font-semibold text-gray-400 mb-4">Download ONEMSU App</h4>
-                <div className="grid grid-cols-3 gap-2 md:gap-3 mb-6 md:mb-8">
-                  <a
-                    href="#"
-                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M3 5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5zm16 0H5v14h14V5z"/>
-                    </svg>
-                    <span className="text-xs text-gray-300">Windows</span>
-                  </a>
-                  <a
-                    href="#"
-                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.38-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.08 2.29.74 3.08.8.905-.15 1.75-.72 2.95-.8 4.77.37 5.54 7.04 2.97 11.97z"/>
-                    </svg>
-                    <span className="text-xs text-gray-300">iOS</span>
-                  </a>
-                  <a
-                    href="#"
-                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-center"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                    </svg>
-                    <span className="text-xs text-gray-300">Android</span>
-                  </a>
-                </div>
-              </div>
-
-              <div className="text-center">
+              
+              <div className="mt-8 pt-8 border-t border-white/5 text-center">
                 <p className="text-sm text-gray-500">
                   Don't have an account? <button onClick={() => { setIsLoginOpen(false); setIsSignupOpen(true); }} className="text-amber-500 font-semibold hover:underline">Register here</button>
                 </p>
@@ -2239,36 +1681,36 @@ const isVerified = (email?: string, u?: User | null) => {
       {/* Signup Modal */}
       <AnimatePresence>
         {isSignupOpen && (
-          <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
+              className="w-full max-w-md card-gold p-8 rounded-3xl"
             >
-              <div className="flex justify-between items-center mb-6 md:mb-8">
-                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Join ONEMSU</h3>
-                <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white shrink-0"><X /></button>
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-bold text-metallic-gold">Join ONEMSU</h3>
+                <button onClick={() => setIsSignupOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
               
-              <form className="space-y-4 md:space-y-6" onSubmit={handleSignup}>
+              <form className="space-y-6" onSubmit={handleSignup}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Full Name</label>
-                  <input
+                  <input 
                     name="name"
-                    type="text"
+                    type="text" 
                     placeholder="Juan Dela Cruz"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
-                  <input
+                  <input 
                     name="email"
-                    type="email"
+                    type="email" 
                     placeholder="juan.delacruz@gmail.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                     pattern=".+@gmail\.com"
                     title="Please use a valid @gmail.com address"
@@ -2276,9 +1718,9 @@ const isVerified = (email?: string, u?: User | null) => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Campus</label>
-                  <select
+                  <select 
                     name="campus"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   >
                     {CAMPUSES.map(c => <option key={c.slug} value={c.name} className="bg-[#0a0502]">{c.name}</option>)}
@@ -2286,24 +1728,24 @@ const isVerified = (email?: string, u?: User | null) => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
-                  <input
+                  <input 
                     name="password"
-                    type="password"
+                    type="password" 
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
                   />
                 </div>
-                <button
+                <button 
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Creating...
@@ -2313,8 +1755,8 @@ const isVerified = (email?: string, u?: User | null) => {
                   )}
                 </button>
               </form>
-
-              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 text-center">
+              
+              <div className="mt-8 pt-8 border-t border-white/5 text-center">
                 <p className="text-sm text-gray-500">
                   Already have an account? <button onClick={() => { setIsSignupOpen(false); setIsLoginOpen(true); }} className="text-amber-500 font-semibold hover:underline">Sign In</button>
                 </p>
@@ -2327,44 +1769,45 @@ const isVerified = (email?: string, u?: User | null) => {
       {/* Forgot Password Modal */}
       <AnimatePresence>
         {isForgotOpen && (
-          <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-md card-gold p-6 md:p-8 rounded-3xl max-h-[90vh] overflow-y-auto scrollbar-hide"
+              className="w-full max-w-md card-gold p-8 rounded-3xl"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl md:text-2xl font-bold text-metallic-gold">Reset Password</h3>
-                <button onClick={() => setIsForgotOpen(false)} className="text-gray-500 hover:text-white shrink-0"><X /></button>
+                <h3 className="text-2xl font-bold text-metallic-gold">Reset Password</h3>
+                <button onClick={() => setIsForgotOpen(false)} className="text-gray-500 hover:text-white"><X /></button>
               </div>
-
-              <p className="text-gray-400 text-sm mb-6 md:mb-8">
+              
+              <p className="text-gray-400 text-sm mb-8">
                 Enter your registered Gmail address and we'll send you a link to reset your password.
               </p>
               
-              <form className="space-y-4 md:space-y-6" onSubmit={handleForgotPassword}>
+              <form className="space-y-6" onSubmit={handleForgotPassword}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Gmail Address</label>
-                  <input
+                  <input 
                     name="email"
-                    type="email"
+                    type="email" 
                     placeholder="juan.delacruz@gmail.com"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-sm md:text-base text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500/50 transition-colors"
                     required
+                    pattern=".+@gmail\.com"
                   />
                 </div>
-
-                <button
+                
+                <button 
                   type="submit"
                   disabled={isAuthLoading}
-                  className={`w-full bg-amber-500 text-black py-3 md:py-4 rounded-xl font-bold text-sm md:text-base transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
+                  className={`w-full bg-amber-500 text-black py-4 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 ${isAuthLoading ? 'opacity-70 cursor-not-allowed scale-95' : 'hover:bg-amber-400 active:scale-95'}`}
                 >
                   {isAuthLoading ? (
                     <>
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full"
                       />
                       Sending Link...
@@ -2374,13 +1817,13 @@ const isVerified = (email?: string, u?: User | null) => {
                   )}
                 </button>
               </form>
-
-              <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-white/5 text-center">
+              
+              <div className="mt-8 pt-8 border-t border-white/5 text-center">
                 <button 
                   onClick={() => { setIsForgotOpen(false); setIsLoginOpen(true); }} 
                   className="text-sm text-gray-500 hover:text-amber-500 flex items-center justify-center gap-2 mx-auto transition-colors"
                 >
-                  <ArrowRight className="rotate-180 w-3.5 h-3.5 sm:w-4 sm:h-4" size={14} /> Back to Sign In
+                  <ArrowRight className="rotate-180" size={16} /> Back to Sign In
                 </button>
               </div>
             </motion.div>
@@ -2389,10 +1832,10 @@ const isVerified = (email?: string, u?: User | null) => {
       </AnimatePresence>
 
       {/* Footer */}
-      <div className="absolute bottom-4 md:bottom-8 left-0 right-0 flex flex-wrap justify-center gap-3 md:gap-6 text-gray-500 text-xs px-4">
-        <span className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck size={14} /> Secure Access</span>
-        <span className="flex items-center gap-1 whitespace-nowrap"><Globe size={14} /> Global Network</span>
-        <span className="flex items-center gap-1 whitespace-nowrap"><Users size={14} /> 100k+ Alumni</span>
+      <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-6 text-gray-500 text-xs">
+        <span className="flex items-center gap-1"><ShieldCheck size={14} /> Secure Access</span>
+        <span className="flex items-center gap-1"><Globe size={14} /> Global Network</span>
+        <span className="flex items-center gap-1"><Users size={14} /> 100k+ Alumni</span>
       </div>
     </div>
   );
@@ -2449,28 +1892,6 @@ const isVerified = (email?: string, u?: User | null) => {
             >
               <X size={20} />
             </button>
-          </div>
-
-          {/* Mobile Campus List (copy of sidebar buttons) */}
-          <div className="md:hidden p-4 space-y-2">
-            <h3 className="text-sm font-bold text-metallic-gold mb-2">Campuses</h3>
-            <div className="grid grid-cols-1 gap-2">
-              {CAMPUSES.map((campus) => (
-                <button
-                  key={campus.slug}
-                  onClick={() => { setSelectedCampus(campus); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${activeCampus.slug === campus.slug ? 'bg-amber-500 text-black' : 'text-gray-400 hover:bg-white/5'}`}
-                >
-                  <div className="w-8 h-8 shrink-0">
-                    <CampusLogo slug={campus.slug} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-bold truncate">{campus.name}</p>
-                    <p className={`text-[10px] ${activeCampus.slug === campus.slug ? 'text-black/60' : 'text-gray-500'}`}>{campus.location}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Feed Grid */}
@@ -2543,8 +1964,8 @@ const isVerified = (email?: string, u?: User | null) => {
                     <X size={20} />
                   </button>
                   <div className="absolute bottom-6 left-8">
-                    <h1 className="text-3xl md:text-5xl font-bold text-white mb-1 drop-shadow-2xl">{selectedCampus.name}</h1>
-                    <p className="text-amber-400 flex items-center gap-1 font-medium"><MapPin size={16} /> {selectedCampus.location}</p>
+                    <h3 className="text-4xl font-bold text-white mb-1">{selectedCampus.name}</h3>
+                    <p className="text-amber-400 flex items-center gap-1"><MapPin size={16} /> {selectedCampus.location}</p>
                   </div>
                 </div>
                 <div className="p-8 max-h-[80vh] overflow-y-auto scrollbar-hide">
@@ -2554,11 +1975,11 @@ const isVerified = (email?: string, u?: User | null) => {
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Students</p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Student Body</p>
                         <p className="text-2xl font-bold text-white">{selectedCampus.stats.students}</p>
                       </div>
                       <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Programs</p>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Academic Programs</p>
                         <p className="text-2xl font-bold text-white">{selectedCampus.stats.courses}</p>
                       </div>
                     </div>
@@ -2567,7 +1988,7 @@ const isVerified = (email?: string, u?: User | null) => {
                   <div className="h-px w-full bg-white/10 mb-8" />
                   
                   <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <MessageSquare className="text-amber-500" size={20} /> Campus Board
+                    <MessageSquare className="text-amber-500" size={20} /> Campus Newsfeed
                   </h4>
                   <CampusNewsfeed campus={selectedCampus} />
                 </div>
@@ -2619,197 +2040,6 @@ const isVerified = (email?: string, u?: User | null) => {
             </div>
           )}
         </AnimatePresence>
-      </div>
-    );
-  };
-
-  const renderSystem = () => {
-    if (!user || !isOwner(user.email)) {
-      return (
-        <div className="min-h-[100dvh] bg-[#0a0502] flex items-center justify-center text-gray-400">
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">Unauthorized</div>
-        </div>
-      );
-    }
-    const save = async () => {
-      const payload = { 
-        userId: user.id, 
-        email: user.email, 
-        updates: { 
-          jarvisEnabled: adminSettings.jarvisEnabled === true, 
-          maintenanceMode: adminSettings.maintenanceMode ?? false,
-          windowsExeUrl: adminSettings.windowsExeUrl ?? '',
-          androidApkUrl: adminSettings.androidApkUrl ?? '',
-          iosUrl: adminSettings.iosUrl ?? '',
-          showExploreButton: adminSettings.showExploreButton === true,
-          requireSignupCode: adminSettings.requireSignupCode === true
-        } 
-      };
-      const r = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json()).catch(() => null);
-      if (r && r.success) {
-        setAdminSettings(prev => ({
-          ...prev
-        }));
-        setToast({ message: 'Settings saved', roomId: activeRoom });
-        setTimeout(() => setToast(null), 2000);
-      }
-    };
-    return (
-      <div className="min-h-[100dvh] bg-[#0a0502] text-gray-200 p-4 md:p-12">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-metallic-gold">System Controls</h2>
-            <button onClick={() => setView(isLoggedIn ? 'dashboard' : 'home')} className="text-gray-500 hover:text-white"><X /></button>
-          </div>
-          <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-bold">Enable JARVIS X3</div>
-                <div className="text-xs text-gray-400">Show the JARVIS button and allow opening</div>
-              </div>
-              <button
-                onClick={() => setAdminSettings(prev => ({ ...prev, jarvisEnabled: !(prev.jarvisEnabled === true) }))}
-                className={`px-3 py-1 rounded-full text-xs ${ (adminSettings.jarvisEnabled === true) ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-400' }`}
-              >
-                { (adminSettings.jarvisEnabled === true) ? 'On' : 'Off' }
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-bold">Maintenance Mode</div>
-                <div className="text-xs text-gray-400">Dim UI and restrict non-essential features</div>
-              </div>
-              <button
-                onClick={() => setAdminSettings(prev => ({ ...prev, maintenanceMode: !(prev.maintenanceMode ?? false) }))}
-                className={`px-3 py-1 rounded-full text-xs ${ (adminSettings.maintenanceMode ?? false) ? 'bg-rose-500/80 text-white' : 'bg-white/10 text-gray-400' }`}
-              >
-                { (adminSettings.maintenanceMode ?? false) ? 'Enabled' : 'Disabled' }
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-bold">Show "Explore Campuses" Button</div>
-                <div className="text-xs text-gray-400">Controls the Home hero Explore button</div>
-              </div>
-              <button
-                onClick={() => setAdminSettings(prev => ({ ...prev, showExploreButton: !(prev.showExploreButton === true) }))}
-                className={`px-3 py-1 rounded-full text-xs ${ (adminSettings.showExploreButton === true) ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-400' }`}
-              >
-                { (adminSettings.showExploreButton === true) ? 'Shown' : 'Hidden' }
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-bold">Require Signup Verification Code</div>
-                <div className="text-xs text-gray-400">Hide code field when off</div>
-              </div>
-              <button
-                onClick={() => setAdminSettings(prev => ({ ...prev, requireSignupCode: !(prev.requireSignupCode === true) }))}
-                className={`px-3 py-1 rounded-full text-xs ${ (adminSettings.requireSignupCode === true) ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-400' }`}
-              >
-                { (adminSettings.requireSignupCode === true) ? 'Required' : 'Disabled' }
-              </button>
-            </div>
-            <div className="space-y-2">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Downloads</div>
-              <input
-                value={adminSettings.windowsExeUrl ?? ''}
-                onChange={(e) => setAdminSettings(prev => ({ ...prev, windowsExeUrl: e.target.value }))}
-                placeholder="Windows .exe URL"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
-              />
-              <input
-                value={adminSettings.androidApkUrl ?? ''}
-                onChange={(e) => setAdminSettings(prev => ({ ...prev, androidApkUrl: e.target.value }))}
-                placeholder="Android .apk URL"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
-              />
-              <input
-                value={adminSettings.iosUrl ?? ''}
-                onChange={(e) => setAdminSettings(prev => ({ ...prev, iosUrl: e.target.value }))}
-                placeholder="iOS App Store or TestFlight URL"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
-              />
-            </div>
-            <div className="pt-2">
-              <button
-                onClick={save}
-                className="px-4 py-2 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-          <RoleManager ownerEmail={user.email} />
-        </div>
-      </div>
-    );
-  };
-
-  const RoleManager = ({ ownerEmail }: { ownerEmail: string }) => {
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState<Array<{ id: number; name: string; email: string; campus: string; is_verified?: number; is_admin?: number }>>([]);
-    const [loading, setLoading] = useState(false);
-    const search = async (q: string) => {
-      setQuery(q);
-      if (q.length < 2) { setResults([]); return; }
-      setLoading(true);
-      try {
-        const r = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`).then(r => r.json());
-        setResults(r || []);
-      } finally {
-        setLoading(false);
-      }
-    };
-    const setRole = async (id: number, fields: Partial<{ is_verified: boolean; is_admin: boolean }>) => {
-      const r = await fetch(`/api/users/${id}/roles`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: ownerEmail, ...fields }) }).then(r => r.json());
-      if (r && r.success) {
-        setResults(prev => prev.map(u => u.id === id ? { ...u, ...r.user } : u));
-        if (user && user.id === id) {
-          // If owner updated themselves or same session user, refresh profile
-          fetch(`/api/profile/${id}`).then(r => r.json()).then(res => { if (res.success) setUser(res.user); });
-        }
-        setToast({ message: 'Roles updated', roomId: 'admin' });
-        setTimeout(() => setToast(null), 2000);
-      }
-    };
-    return (
-      <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-4">
-        <div className="text-sm font-bold uppercase tracking-widest text-gray-500">Roles</div>
-        <input
-          value={query}
-          onChange={(e) => search(e.target.value)}
-          placeholder="Search users by name or email"
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50"
-        />
-        {loading && <div className="text-xs text-gray-500">Searching…</div>}
-        <div className="space-y-2">
-          {results.map(u => (
-            <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
-              <div className="min-w-0">
-                <div className="font-bold text-white truncate">{u.name}</div>
-                <div className="text-xs text-gray-500 truncate">{u.email} • {u.campus}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setRole(u.id, { is_verified: !(!!u.is_verified) })}
-                  className={`px-3 py-1 rounded-full text-xs ${u.is_verified ? 'bg-amber-500 text-black' : 'bg-white/10 text-gray-400'}`}
-                  title="Verified"
-                >
-                  <ShieldCheck size={14} />
-                </button>
-                <button
-                  onClick={() => setRole(u.id, { is_admin: !(!!u.is_admin) })}
-                  className={`px-3 py-1 rounded-full text-xs ${u.is_admin ? 'bg-emerald-500 text-black' : 'bg-white/10 text-gray-400'}`}
-                  title="Admin"
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-          ))}
-          {results.length === 0 && !loading && <div className="text-xs text-gray-500">No results</div>}
-        </div>
       </div>
     );
   };
@@ -3157,97 +2387,6 @@ const isVerified = (email?: string, u?: User | null) => {
       </div>
     </div>
   );
-  
-  const renderLostFound = () => {
-    const [items, setItems] = useState<any[]>([]);
-    const [lfLoading, setLfLoading] = useState(false);
-    const [lfTitle, setLfTitle] = useState('');
-    const [lfDesc, setLfDesc] = useState('');
-    const [lfCampus, setLfCampus] = useState('');
-    const [lfContact, setLfContact] = useState('');
-    const [lfImageUrl, setLfImageUrl] = useState('');
-    useEffect(() => {
-      fetch('/api/lostfound').then(r => r.json()).then(setItems);
-    }, []);
-    const submit = async () => {
-      if (!lfTitle.trim() || !lfDesc.trim()) return;
-      setLfLoading(true);
-      try {
-        const r = await fetch('/api/lostfound', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: lfTitle.trim(), description: lfDesc.trim(), campus: lfCampus, contact: lfContact, imageUrl: lfImageUrl })
-        }).then(r => r.json());
-        if (r.success) {
-          setItems((prev) => [r.item, ...prev]);
-          setLfTitle(''); setLfDesc(''); setLfCampus(''); setLfContact(''); setLfImageUrl('');
-        }
-      } finally {
-        setLfLoading(false);
-      }
-    };
-    const markFound = async (id: number, val: boolean) => {
-      const r = await fetch(`/api/lostfound/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ found: val }) }).then(r => r.json());
-      if (r.success) setItems(prev => prev.map(it => it.id === id ? r.item : it));
-    };
-    return (
-      <div className="min-h-screen bg-[#0a0502] text-gray-200 p-4 md:p-12">
-        <div className="max-w-3xl mx-auto">
-          <header className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold text-metallic-gold">Lost &amp; Found</h2>
-            <button onClick={() => setView('dashboard')} className="text-gray-500 hover:text-white"><X /></button>
-          </header>
-          <div className="p-4 md:p-6 rounded-3xl bg-white/5 border border-white/10 mb-6">
-            <div className="grid grid-cols-1 gap-3">
-              <input value={lfTitle} onChange={(e) => setLfTitle(e.target.value)} placeholder="Item title (e.g., Black wallet)" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50" />
-              <textarea value={lfDesc} onChange={(e) => setLfDesc(e.target.value)} placeholder="Description and where it was lost/found" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50" rows={3} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <select value={lfCampus} onChange={(e) => setLfCampus(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50">
-                  <option value="" className="bg-[#0a0502]">Campus (optional)</option>
-                  {CAMPUSES.map(c => <option key={c.slug} value={c.name} className="bg-[#0a0502]">{c.name}</option>)}
-                </select>
-                <input value={lfContact} onChange={(e) => setLfContact(e.target.value)} placeholder="Contact (optional)" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50" />
-              </div>
-              <input value={lfImageUrl} onChange={(e) => setLfImageUrl(e.target.value)} placeholder="Image URL (optional)" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50" />
-              <div className="flex justify-end">
-                <button onClick={submit} disabled={lfLoading || !lfTitle || !lfDesc} className="px-4 py-2 rounded-lg bg-amber-500 text-black font-bold hover:bg-amber-400 transition-colors disabled:opacity-50">
-                  {lfLoading ? 'Posting…' : 'Post Item'}
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {items.map(it => (
-              <div key={it.id} className="p-4 rounded-2xl bg-white/5 border border-white/10 flex gap-3">
-                {it.image_url && <img src={it.image_url} alt="" className="w-20 h-20 rounded-lg object-cover border border-white/10" />}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-white font-bold truncate">{it.title}</h4>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${it.found ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{it.found ? 'Found/Claimed' : 'Looking'}</span>
-                  </div>
-                  <p className="text-sm text-gray-300 mt-1">{it.description}</p>
-                  <div className="text-[10px] text-gray-500 mt-1 flex gap-2">
-                    {it.campus && <span>{it.campus}</span>}
-                    <span>{new Date(it.timestamp).toLocaleString()}</span>
-                    {it.contact && <span>• {it.contact}</span>}
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    {!it.found && (
-                      <button onClick={() => markFound(it.id, true)} className="px-3 py-1 rounded-lg bg-white/10 text-xs text-gray-300 hover:bg-white/20">Mark as found</button>
-                    )}
-                    {it.found && (
-                      <button onClick={() => markFound(it.id, false)} className="px-3 py-1 rounded-lg bg-white/10 text-xs text-gray-300 hover:bg-white/20">Reopen</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {items.length === 0 && <div className="text-sm text-gray-500">No items yet.</div>}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const Feed = ({ room }: { room: string }) => {
     const [items, setItems] = useState<Message[]>([]);
@@ -3576,16 +2715,11 @@ const isVerified = (email?: string, u?: User | null) => {
               <div>
                 <div className="text-2xl font-bold text-white flex items-center gap-2">
                   {user?.name || 'MSUan'}
-                  {isVerified(user?.email, user) && (
+                  {isVerified(user?.email) && (
                     <span className="p-1 rounded-full bg-amber-500 text-black" title="Verified">
                       <ShieldCheck size={14} />
                     </span>
                   )}
-                  {user?.is_admin ? (
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/80 text-black text-[10px] uppercase tracking-wider font-bold" title="Admin">
-                      Admin
-                    </span>
-                  ) : null}
                   {user?.email === 'xandercamarin@gmail.com' && (
                     <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[10px] uppercase tracking-wider font-bold shadow-lg shadow-rose-500/20" title="Founder">
                       Founder
@@ -4090,41 +3224,6 @@ const isVerified = (email?: string, u?: User | null) => {
             </div>
           </div>
           <div className="flex items-center gap-1 md:gap-2 text-gray-500">
-            {!isInVoice ? (
-              <>
-                <button
-                  onClick={() => joinVoiceChannel()}
-                  className="p-2 rounded-lg hover:text-white hover:bg-white/5"
-                  title="Start voice call"
-                >
-                  <Monitor size={20} />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => toggleMic()}
-                  className={`p-2 rounded-lg hover:text-white hover:bg-white/5 ${micOn ? 'text-white' : 'text-gray-500'}`}
-                  title={micOn ? 'Mute mic' : 'Unmute mic'}
-                >
-                  <Mic size={20} />
-                </button>
-                <button
-                  onClick={() => toggleCamera()}
-                  className={`p-2 rounded-lg hover:text-white hover:bg-white/5 ${cameraOn ? 'text-white' : 'text-gray-500'}`}
-                  title={cameraOn ? 'Turn off camera' : 'Turn on camera'}
-                >
-                  <Video size={20} />
-                </button>
-                <button
-                  onClick={() => leaveVoiceChannel()}
-                  className="p-2 rounded-lg text-rose-500 hover:text-white hover:bg-rose-500/20"
-                  title="End call"
-                >
-                  <PhoneOff size={20} />
-                </button>
-              </>
-            )}
             <button
               onClick={() => setMutedRooms(prev => prev.includes(activeRoom) ? prev.filter(r => r !== activeRoom) : [...prev, activeRoom])}
               className="p-2 rounded-lg hover:text-white hover:bg-white/5"
@@ -4318,20 +3417,6 @@ const isVerified = (email?: string, u?: User | null) => {
                       if (isAtBottom) sendSeen();
                     }}
                   />
-                  {isInVoice && (
-                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-2 max-w-[60vw]">
-                      <div className="grid grid-cols-2 gap-2">
-                        {Array.from(remoteStreams.entries()).map(([uid, stream]) => (
-                          <div key={uid}>
-                            <VoiceTile stream={stream} />
-                          </div>
-                        ))}
-                        {cameraOn && localStreamRef.current && (
-                          <LocalTile streamRef={localStreamRef} />
-                        )}
-                      </div>
-                    </div>
-                  )}
                   {typingUsers[activeRoom]?.length > 0 && (
                     <div className="absolute bottom-4 left-6 flex items-center gap-2 text-[10px] text-amber-500 font-bold bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-amber-500/20 shadow-lg animate-in fade-in slide-in-from-bottom-2">
                       <div className="flex gap-1">
@@ -4548,43 +3633,6 @@ const isVerified = (email?: string, u?: User | null) => {
 
   return (
     <div className="h-[100dvh] w-full selection:bg-amber-500/30 selection:text-amber-200 overflow-auto scrollbar-hide fixed inset-0">
-      <AnimatePresence>
-        {showSplash && (
-          <motion.div
-            key="splash"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
-            className="fixed inset-0 z-[200] bg-[#0a0502] flex items-center justify-center"
-          >
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="w-56 h-56"
-            >
-              <motion.div>
-                <Logo />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8, duration: 0.6 }}
-                className="text-center mt-8"
-              >
-                <h1 className="text-2xl font-bold text-metallic-gold">ONE<span className="text-white">MSU</span></h1>
-                <motion.div
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="mt-4 text-xs text-gray-500"
-                >
-                  Loading...
-                </motion.div>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <AnimatePresence mode="wait">
         {view === 'home' && (
           <motion.div
@@ -4663,17 +3711,6 @@ const isVerified = (email?: string, u?: User | null) => {
             {renderConfession()}
           </motion.div>
         )}
-        {view === 'system' && (
-          <motion.div
-            key="system"
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
-          >
-            {renderSystem()}
-          </motion.div>
-        )}
         {view === 'feedbacks' && (
           <motion.div
             key="feedbacks"
@@ -4683,17 +3720,6 @@ const isVerified = (email?: string, u?: User | null) => {
             transition={{ type: "spring", damping: 25, stiffness: 120 }}
           >
             {renderFeedbacks()}
-          </motion.div>
-        )}
-        {view === 'lostfound' && (
-          <motion.div
-            key="lostfound"
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -100 }}
-            transition={{ type: "spring", damping: 25, stiffness: 120 }}
-          >
-            {renderLostFound()}
           </motion.div>
         )}
         {view === 'messenger' && (
@@ -4741,27 +3767,10 @@ const isVerified = (email?: string, u?: User | null) => {
 
       {/* Global Navigation Overlay (Mobile) */}
       {!isLoggedIn && (
-        <div className="fixed top-6 right-6 z-50 md:hidden flex items-center gap-3">
-          {(adminSettings.jarvisEnabled === true) && (
-            <button
-              onClick={() => {
-                setIsJarvisLoading(true);
-                setTimeout(() => {
-                  setIsJarvisLoading(false);
-                  setIsJarvisOpen(true);
-                }, 10000);
-                (document.documentElement as any).requestFullscreen?.().catch?.(() => {});
-              }}
-              className="p-3 rounded-full bg-amber-500 text-black shadow-lg"
-              title="JARVIS X3"
-            >
-              <Bot />
-            </button>
-          )}
+        <div className="fixed top-6 right-6 z-50 md:hidden">
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="p-3 rounded-full bg-amber-500 text-black shadow-lg"
-            title="Menu"
           >
             {isMenuOpen ? <X /> : <Menu />}
           </button>
@@ -4779,25 +3788,6 @@ const isVerified = (email?: string, u?: User | null) => {
             <div className="flex flex-col gap-8 text-center">
               <button onClick={() => { setView('home'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">Home</button>
               <button onClick={() => { setView('explorer'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">Campuses</button>
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  setIsDownloadOpen(true);
-                }}
-                className="text-4xl font-bold text-white"
-              >
-                Download
-              </button>
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  setIsJarvisOpen(true);
-                  (document.documentElement as any).requestFullscreen?.().catch?.(() => {});
-                }}
-                className="text-4xl font-bold text-white"
-              >
-                JARVIS X3
-              </button>
               <button onClick={() => { setView('about'); setIsMenuOpen(false); }} className="text-4xl font-bold text-white">About</button>
               <div className="h-px w-24 bg-amber-500/30 mx-auto my-4" />
               <div className="flex gap-6 justify-center text-amber-500">
