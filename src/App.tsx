@@ -509,20 +509,24 @@ const isVerified = (email?: string, u?: User | null) => {
 
   // Effect to populate DM list from local storage or API
   useEffect(() => {
-    if (user) {
-      // Load saved DM list
-      const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
-      if (savedDMs) {
-        setDirectMessageList(JSON.parse(savedDMs));
-      }
+    if (!user) {
+      setDirectMessageList([]);
+      return;
     }
+
+    const savedDMs = localStorage.getItem(`onemsu_dms_${user.id}`);
+    if (savedDMs) {
+      setDirectMessageList(JSON.parse(savedDMs));
+      return;
+    }
+
+    setDirectMessageList([]);
   }, [user]);
 
   // Save DM list when it changes
   useEffect(() => {
-    if (user && directMessageList.length > 0) {
-      localStorage.setItem(`onemsu_dms_${user.id}`, JSON.stringify(directMessageList));
-    }
+    if (!user) return;
+    localStorage.setItem(`onemsu_dms_${user.id}`, JSON.stringify(directMessageList));
   }, [directMessageList, user]);
 
   const addToDMList = (otherUser: { id: number; name: string; avatar?: string; campus?: string }) => {
