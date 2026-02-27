@@ -4,6 +4,7 @@
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --color-gold: #b99740;
+  --color-maroon: #5e0a10;
 }
 
 @layer base {
@@ -107,9 +108,9 @@ body {
 }
 
 .glass-surface {
-  background: rgba(255, 80, 20, 0.05);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 200, 150, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -120,4 +121,3 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
