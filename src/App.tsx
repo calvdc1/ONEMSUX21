@@ -291,6 +291,11 @@ export default function App() {
   const [followStats, setFollowStats] = useState({ followers: 0, following: 0 });
   const [followingFeed, setFollowingFeed] = useState<any[]>([]);
   const [ownerSettings, setOwnerSettings] = useState<any>(null);
+  const [messageDraft, setMessageDraft] = useState('');
+  const [typingUsersByRoom, setTypingUsersByRoom] = useState<Record<string, string>>({});
+  const typingClearTimersRef = useRef<Record<string, number>>({});
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const ringtoneIntervalRef = useRef<number | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<{ id: number; name: string; description: string; campus: string; logo_url?: string } | null>(null);
   const [newGroup, setNewGroup] = useState<{ name: string; description: string; campus: string; logoPreview: string | null }>({ name: '', description: '', campus: '', logoPreview: null });
   const [dashboardCreateOpen, setDashboardCreateOpen] = useState(false);
@@ -334,6 +339,62 @@ export default function App() {
     }
   };
 
+  const ensureAudioCtx = () => {
+    if (typeof window === 'undefined') return null;
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+    return audioCtxRef.current;
+  };
+
+  const playSound = (type: 'splash' | 'send' | 'receive' | 'ringtone') => {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const schedule = (freq: number, at: number, dur: number, gainValue: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = gainValue;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + dur);
+    };
+    if (type === 'splash') {
+      schedule(540, now, 0.08, 0.03);
+      schedule(720, now + 0.09, 0.09, 0.03);
+    } else if (type === 'send') {
+      schedule(820, now, 0.05, 0.025);
+    } else if (type === 'receive') {
+      schedule(620, now, 0.06, 0.03);
+      schedule(760, now + 0.07, 0.05, 0.03);
+    } else {
+      schedule(520, now, 0.08, 0.03);
+      schedule(430, now + 0.11, 0.08, 0.03);
+    }
+  };
+
+  const startRingtone = () => {
+    if (ringtoneIntervalRef.current) return;
+    playSound('ringtone');
+    ringtoneIntervalRef.current = window.setInterval(() => playSound('ringtone'), 1600);
+    window.setTimeout(() => {
+      if (ringtoneIntervalRef.current) {
+        window.clearInterval(ringtoneIntervalRef.current);
+        ringtoneIntervalRef.current = null;
+      }
+    }, 7000);
+  };
+
+  const stopRingtone = () => {
+    if (ringtoneIntervalRef.current) {
+      window.clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
+  };
+
   const [enrolledCourses, setEnrolledCourses] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('onemsu_courses');
@@ -343,6 +404,7 @@ export default function App() {
   });
 
   useEffect(() => {
+    playSound('splash');
     const timer = window.setTimeout(() => setShowOpeningSplash(false), 10000);
     return () => window.clearTimeout(timer);
   }, []);
@@ -483,11 +545,34 @@ export default function App() {
         if (data.type === 'chat') {
           if (data.roomId === activeRoom) {
             setMessages(prev => [...prev, data]);
+            if (data.senderId !== user?.id) playSound('receive');
           } else {
             setUnreadCount((n) => n + 1);
             if (typeof document !== 'undefined') document.title = `(${unreadCount + 1}) ONEMSU`;
+            if (data.roomId?.startsWith('dm-')) startRingtone();
             if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               new Notification(`${data.senderName || 'New message'}`, { body: data.content || 'Attachment received' });
+            }
+          }
+        } else if (data.type === 'typing') {
+          if (data.roomId && data.userName) {
+            if (data.isTyping) {
+              setTypingUsersByRoom((prev) => ({ ...prev, [data.roomId]: data.userName }));
+              const existing = typingClearTimersRef.current[data.roomId];
+              if (existing) window.clearTimeout(existing);
+              typingClearTimersRef.current[data.roomId] = window.setTimeout(() => {
+                setTypingUsersByRoom((prev) => {
+                  const cp = { ...prev };
+                  delete cp[data.roomId];
+                  return cp;
+                });
+              }, 2200);
+            } else {
+              setTypingUsersByRoom((prev) => {
+                const cp = { ...prev };
+                delete cp[data.roomId];
+                return cp;
+              });
             }
           }
         } else if (data.type === 'presence') {
@@ -510,6 +595,7 @@ export default function App() {
 
   useEffect(() => {
     setUnreadCount(0);
+    stopRingtone();
     if (typeof document !== 'undefined') document.title = 'ONEMSU';
     if (isLoggedIn && activeRoom) {
       setHasMore(true);
@@ -706,7 +792,10 @@ export default function App() {
         attachmentUrl: composerAttachment?.url,
         attachmentType: composerAttachment?.type,
       }));
+      socketRef.current.send(JSON.stringify({ type: 'typing', userId: user.id, userName: user.name, roomId: activeRoom, isTyping: false }));
+      setMessageDraft('');
       setComposerAttachment(null);
+      playSound('send');
     }
   };
 
@@ -1399,19 +1488,6 @@ export default function App() {
               <form className="space-y-6" onSubmit={handleLogin}>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">MSU Email / ID</label>
-                  {composerAttachment && (
-                  <div className="mr-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs">
-                    <span>{composerAttachment.type.startsWith('audio/') ? 'Voicemail attached' : 'Attachment ready'}</span>
-                    <button type="button" onClick={() => setComposerAttachment(null)} className="text-rose-400">✕</button>
-                  </div>
-                )}
-                <label className="p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer" title="Attach photo">
-                  <Paperclip size={16} />
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f=e.target.files?.[0]; if (f) attachFileToComposer(f); }} />
-                </label>
-                <button type="button" onClick={toggleVoiceNote} className={`p-3 rounded-xl border ${isRecordingVoice ? 'bg-rose-500/20 border-rose-500/30 text-rose-300' : 'bg-white/5 border-white/10 text-gray-300'}`} title="Voice message">
-                  <Mic2 size={16} />
-                </button>
                 <input 
                     name="email"
                     type="email" 
@@ -1717,6 +1793,9 @@ export default function App() {
               ))}
               {groups.filter(g => !selectedCampus || g.campus === selectedCampus.name).length === 0 && (
                 <div className="text-sm text-gray-500">No groups for this campus.</div>
+              )}
+              {typingUsersByRoom[activeRoom] && (
+                <div className="px-2 py-1 text-xs text-gray-500">{typingUsersByRoom[activeRoom]} is typing…</div>
               )}
             </div>
           )}
@@ -2505,6 +2584,9 @@ export default function App() {
                   </button>
                 </div>
               )}
+              {typingUsersByRoom[activeRoom] && (
+                <div className="px-2 py-1 text-xs text-gray-500">{typingUsersByRoom[activeRoom]} is typing…</div>
+              )}
             </div>
           </div>
         </div>
@@ -2512,6 +2594,9 @@ export default function App() {
         <div className="flex-1 md:flex md:gap-6">
           <div className={`${mobileMessengerView === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 flex-col`}>
             <div className="flex-1 min-w-0 p-6">
+              {typingUsersByRoom[activeRoom] && !messages.length ? (
+                <div className="mb-2 text-xs text-gray-500">{typingUsersByRoom[activeRoom]} is typing…</div>
+              ) : null}
               {messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-center text-gray-500">
                   <div>
@@ -2625,24 +2710,46 @@ ${res.user.year_level || ''}`);
                   })}
                 </div>
               )}
+              {typingUsersByRoom[activeRoom] && (
+                <div className="px-2 py-1 text-xs text-gray-500">{typingUsersByRoom[activeRoom]} is typing…</div>
+              )}
             </div>
             <div className="p-6 bg-black/20">
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const input = e.currentTarget.elements.namedItem('message') as HTMLInputElement;
-                  sendMessage(input.value);
-                  input.value = '';
+                  sendMessage(messageDraft);
                 }}
-                className="flex w-full gap-2 sm:gap-4"
+                className="flex w-full gap-2 sm:gap-3 items-center"
               >
+                {composerAttachment && (
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs">
+                    <span>{composerAttachment.type.startsWith('audio/') ? 'Voicemail attached' : 'Attachment ready'}</span>
+                    <button type="button" onClick={() => setComposerAttachment(null)} className="text-rose-400">✕</button>
+                  </div>
+                )}
+                <label className="p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer" title="Attach photo">
+                  <Paperclip size={16} />
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) attachFileToComposer(f); }} />
+                </label>
+                <button type="button" onClick={toggleVoiceNote} className={`p-3 rounded-xl border ${isRecordingVoice ? 'bg-rose-500/20 border-rose-500/30 text-rose-300' : 'bg-white/5 border-white/10 text-gray-300'}`} title="Voice message">
+                  <Mic2 size={16} />
+                </button>
                 <input 
                   name="message"
                   type="text"
-                  placeholder={activeRoom.startsWith('dm') ? 'Message user…' : `Message ${activeRoom.replace(/-/g, ' ')}…`}
+                  value={messageDraft}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMessageDraft(val);
+                    if (socketRef.current && user) {
+                      socketRef.current.send(JSON.stringify({ type: 'typing', userId: user.id, userName: user.name, roomId: activeRoom, isTyping: val.trim().length > 0 }));
+                    }
+                  }}
+                  placeholder={activeRoom.startsWith('dm') ? 'Type a message…' : `Message ${activeRoom.replace(/-/g, ' ')}…`}
                   aria-label="Type your message"
                   autoComplete="off"
-                  className="min-w-0 flex-1 w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-3 md:px-8 md:py-4 md:text-base text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/30"
+                  className="min-w-0 flex-1 w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 md:px-6 md:py-4 md:text-base text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/30"
                 />
                 <button 
                   type="submit"

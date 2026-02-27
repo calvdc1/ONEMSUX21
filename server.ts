@@ -587,7 +587,6 @@ User (${userName || "Student"}): ${message}`
         try {
           db.prepare("INSERT INTO read_receipts (user_id, room_id, last_read) VALUES (?, ?, ?) ON CONFLICT(user_id, room_id) DO UPDATE SET last_read = excluded.last_read").run(userId, roomId, lastRead);
         } catch {
-          // Fallback if ON CONFLICT not available (SQLite should support it)
           const exists = db.prepare("SELECT 1 FROM read_receipts WHERE user_id = ? AND room_id = ?").get(userId, roomId);
           if (exists) {
             db.prepare("UPDATE read_receipts SET last_read = ? WHERE user_id = ? AND room_id = ?").run(lastRead, userId, roomId);
@@ -595,6 +594,17 @@ User (${userName || "Student"}): ${message}`
             db.prepare("INSERT INTO read_receipts (user_id, room_id, last_read) VALUES (?, ?, ?)").run(userId, roomId, lastRead);
           }
         }
+      } else if (message.type === "typing") {
+        const { userId, userName, roomId, isTyping } = message as { userId: number; userName: string; roomId: string; isTyping: boolean };
+        const payload = JSON.stringify({ type: 'typing', userId, userName, roomId, isTyping: !!isTyping });
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            const clientData = clients.get(client);
+            if (clientData && clientData.roomId === roomId) {
+              client.send(payload);
+            }
+          }
+        });
       }
     });
 
